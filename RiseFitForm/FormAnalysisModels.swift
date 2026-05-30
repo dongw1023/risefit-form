@@ -25,6 +25,7 @@ struct FormAnalysis: Identifiable, Decodable {
     let id: UUID
     let exercise: String
     let status: FormAnalysisStatus
+    let originalVideoURL: String?
     let analysedVideoURL: String?
     let report: FormAnalysisReport?
     let error: String?
@@ -35,6 +36,7 @@ struct FormAnalysis: Identifiable, Decodable {
         case id
         case exercise
         case status
+        case originalVideoURL = "original_video_url"
         case analysedVideoURL = "analysed_video_url"
         case report
         case error
@@ -77,4 +79,3 @@ struct DetectedFormEvent: Decodable, Identifiable {
         case coachNote = "coach_note"
     }
 }
-

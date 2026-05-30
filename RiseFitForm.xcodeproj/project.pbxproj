@@ -13,6 +13,10 @@
 		A10000000000000000000004 /* FormAnalysisModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* FormAnalysisModels.swift */; };
 		A10000000000000000000005 /* FormAnalysisViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* FormAnalysisViewModel.swift */; };
 		A10000000000000000000006 /* LocalConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* LocalConfig.swift */; };
+		A10000000000000000000007 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* AuthService.swift */; };
+		A10000000000000000000008 /* AuthAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* AuthAPI.swift */; };
+		A10000000000000000000009 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* AuthView.swift */; };
+		A10000000000000000000010 /* OAuthSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* OAuthSupport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +28,11 @@
 		A20000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000007 /* RiseFitForm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RiseFitForm.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000008 /* LocalConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalConfig.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* AuthAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthAPI.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* OAuthSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthSupport.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* RiseFitForm.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RiseFitForm.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -49,11 +58,16 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000001 /* RiseFitFormApp.swift */,
+				A20000000000000000000009 /* AuthService.swift */,
+				A20000000000000000000010 /* AuthAPI.swift */,
+				A20000000000000000000011 /* AuthView.swift */,
+				A20000000000000000000012 /* OAuthSupport.swift */,
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* FormAnalysisAPI.swift */,
 				A20000000000000000000004 /* FormAnalysisModels.swift */,
 				A20000000000000000000005 /* FormAnalysisViewModel.swift */,
 				A20000000000000000000008 /* LocalConfig.swift */,
+				A20000000000000000000013 /* RiseFitForm.entitlements */,
 				A20000000000000000000006 /* Info.plist */,
 			);
 			path = RiseFitForm;
@@ -141,6 +155,10 @@
 				A10000000000000000000004 /* FormAnalysisModels.swift in Sources */,
 				A10000000000000000000005 /* FormAnalysisViewModel.swift in Sources */,
 				A10000000000000000000006 /* LocalConfig.swift in Sources */,
+				A10000000000000000000007 /* AuthService.swift in Sources */,
+				A10000000000000000000008 /* AuthAPI.swift in Sources */,
+				A10000000000000000000009 /* AuthView.swift in Sources */,
+				A10000000000000000000010 /* OAuthSupport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,6 +285,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = RiseFitForm/RiseFitForm.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2J9GMJKNNZ;
@@ -293,6 +312,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = RiseFitForm/RiseFitForm.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2J9GMJKNNZ;

@@ -3,7 +3,13 @@ import PhotosUI
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = FormAnalysisViewModel()
+    @EnvironmentObject private var authService: AuthService
+    @StateObject private var viewModel: FormAnalysisViewModel
+    @State private var playback: VideoPlayback?
+
+    init(authToken: String?) {
+        _viewModel = StateObject(wrappedValue: FormAnalysisViewModel(authToken: authToken))
+    }
 
     var body: some View {
         NavigationStack {
@@ -12,10 +18,24 @@ struct ContentView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 22) {
-                        HeaderView()
+                        HeaderView {
+                            authService.signOut()
+                        }
                         exercisePicker
                         UploadPanel(viewModel: viewModel)
                         stateView
+                        HistoryPanel(viewModel: viewModel) { analysis, kind in
+                            switch kind {
+                            case .original:
+                                if let url = viewModel.originalVideoURL(for: analysis) {
+                                    playback = VideoPlayback(title: "Original \(analysis.exercise.capitalized)", url: url)
+                                }
+                            case .analysed:
+                                if let url = viewModel.videoURL(for: analysis) {
+                                    playback = VideoPlayback(title: "Analysed \(analysis.exercise.capitalized)", url: url)
+                                }
+                            }
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 18)
@@ -23,6 +43,12 @@ struct ContentView: View {
                 }
             }
             .navigationBarHidden(true)
+            .task {
+                await viewModel.loadHistory()
+            }
+            .sheet(item: $playback) { playback in
+                VideoPlaybackView(playback: playback)
+            }
         }
     }
 
@@ -75,7 +101,18 @@ struct ContentView: View {
     }
 }
 
-private struct AppBackground: View {
+private enum HistoryVideoKind {
+    case original
+    case analysed
+}
+
+private struct VideoPlayback: Identifiable {
+    let id = UUID()
+    let title: String
+    let url: URL
+}
+
+struct AppBackground: View {
     var body: some View {
         LinearGradient(
             colors: [
@@ -91,6 +128,8 @@ private struct AppBackground: View {
 }
 
 private struct HeaderView: View {
+    let onSignOut: () -> Void
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -106,13 +145,25 @@ private struct HeaderView: View {
 
                 Spacer()
 
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.white.opacity(0.09))
-                        .frame(width: 48, height: 48)
-                    Image(systemName: "waveform.path.ecg.rectangle")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(Color.riseMint)
+                HStack(spacing: 10) {
+                    Button(action: onSignOut) {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.78))
+                            .frame(width: 44, height: 44)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.white.opacity(0.09))
+                            .frame(width: 48, height: 48)
+                        Image(systemName: "waveform.path.ecg.rectangle")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Color.riseMint)
+                    }
                 }
             }
 
@@ -234,6 +285,211 @@ private struct GuidancePanel: View {
             ChecklistRow(icon: "light.max", text: "Avoid dark or backlit clips")
         }
         .panelStyle()
+    }
+}
+
+private struct HistoryPanel: View {
+    @ObservedObject var viewModel: FormAnalysisViewModel
+    let onPlay: (FormAnalysis, HistoryVideoKind) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Uploaded Videos")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.white)
+
+                    Text("Your recent form checks")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.50))
+                }
+
+                Spacer()
+
+                Button {
+                    Task { await viewModel.loadHistory() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.riseMint)
+                        .frame(width: 36, height: 36)
+                        .background(Color.black.opacity(0.22))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+
+            if viewModel.isLoadingHistory && viewModel.analyses.isEmpty {
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .tint(Color.riseMint)
+                    Text("Loading videos")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+                }
+            } else if let historyError = viewModel.historyError {
+                Text(historyError)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color(red: 1.0, green: 0.46, blue: 0.35))
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if viewModel.analyses.isEmpty {
+                Text("No uploaded videos yet.")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.60))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(viewModel.analyses) { analysis in
+                        HistoryRow(analysis: analysis, onPlay: onPlay)
+                    }
+                }
+            }
+        }
+        .panelStyle()
+    }
+}
+
+private struct HistoryRow: View {
+    let analysis: FormAnalysis
+    let onPlay: (FormAnalysis, HistoryVideoKind) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Color.riseMint)
+                    .frame(width: 34, height: 34)
+                    .background(Color.riseMint.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 8) {
+                        Text(analysis.exercise.capitalized)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+
+                        statusBadge
+                    }
+
+                    Text(analysis.createdAt.formatted(date: .abbreviated, time: .shortened))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.48))
+                }
+
+                Spacer()
+
+                if let score = analysis.report?.formScore {
+                    Text("\(Int(score))")
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundStyle(Color.riseMint)
+                }
+            }
+
+            HStack(spacing: 10) {
+                VideoActionButton(title: "Original", icon: "play.rectangle.fill") {
+                    onPlay(analysis, .original)
+                }
+
+                VideoActionButton(title: "Analysed", icon: "waveform.path.ecg") {
+                    onPlay(analysis, .analysed)
+                }
+                .disabled(analysis.status != .completed || analysis.analysedVideoURL == nil)
+                .opacity(analysis.status == .completed && analysis.analysedVideoURL != nil ? 1 : 0.45)
+            }
+        }
+        .padding(12)
+        .background(Color.black.opacity(0.18))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var icon: String {
+        analysis.exercise == "deadlift" ? "figure.strengthtraining.traditional" : "figure.strengthtraining.functional"
+    }
+
+    private var statusBadge: some View {
+        Text(analysis.status.rawValue.capitalized)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(statusColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(statusColor.opacity(0.13))
+            .clipShape(Capsule())
+    }
+
+    private var statusColor: Color {
+        switch analysis.status {
+        case .completed:
+            return Color.riseMint
+        case .failed:
+            return Color(red: 1.0, green: 0.46, blue: 0.35)
+        case .queued, .processing:
+            return Color(red: 1.0, green: 0.78, blue: 0.38)
+        }
+    }
+}
+
+private struct VideoActionButton: View {
+    let title: String
+    let icon: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .bold))
+                Text(title)
+                    .font(.system(size: 12, weight: .bold))
+            }
+            .foregroundStyle(.white.opacity(0.86))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct VideoPlaybackView: View {
+    @Environment(\.dismiss) private var dismiss
+    let playback: VideoPlayback
+
+    var body: some View {
+        ZStack {
+            AppBackground()
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text(playback.title)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(.white)
+
+                    Spacer()
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                VideoPlayer(player: AVPlayer(url: playback.url))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+            }
+            .padding(20)
+        }
     }
 }
 
@@ -527,6 +783,6 @@ private extension View {
     }
 }
 
-private extension Color {
+extension Color {
     static let riseMint = Color(red: 0.54, green: 0.97, blue: 0.73)
 }

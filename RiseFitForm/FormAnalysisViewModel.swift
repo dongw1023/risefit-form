@@ -71,6 +71,16 @@ final class FormAnalysisViewModel: ObservableObject {
         }
     }
 
+    func reanalyze(_ analysis: FormAnalysis) async {
+        do {
+            state = .processing(analysis)
+            let updatedAnalysis = try await api.reanalyzeAnalysis(id: analysis.id)
+            startPolling(id: updatedAnalysis.id)
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
     func videoURL(for analysis: FormAnalysis) -> URL? {
         api.analysedVideoURL(for: analysis)
     }

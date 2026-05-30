@@ -47,6 +47,16 @@ final class FormAnalysisAPI {
         return try decoder.decode(FormAnalysisListResponse.self, from: data).formAnalyses
     }
 
+    func reanalyzeAnalysis(id: UUID) async throws -> FormAnalysis {
+        var request = URLRequest(url: baseURL.appendingPathComponent("form-analyses/\(id.uuidString)/analyze"))
+        request.httpMethod = "POST"
+        applyAuth(to: &request)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+        return try decoder.decode(FormAnalysis.self, from: data)
+    }
+
     func analysedVideoURL(for analysis: FormAnalysis) -> URL? {
         signedVideoURL(path: analysis.analysedVideoURL)
     }

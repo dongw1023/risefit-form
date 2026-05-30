@@ -94,7 +94,9 @@ struct ContentView: View {
         case .processing(let analysis):
             ProgressPanel(title: "Analysing \(analysis.exercise.capitalized)", message: "Tracking joints, phases, and visible form events.")
         case .completed(let analysis):
-            AnalysisResultView(analysis: analysis, videoURL: viewModel.videoURL(for: analysis))
+            AnalysisResultView(analysis: analysis, videoURL: viewModel.videoURL(for: analysis)) {
+                Task { await viewModel.reanalyze(analysis) }
+            }
         case .failed(let message):
             FailurePanel(message: message)
         }
@@ -340,7 +342,9 @@ private struct HistoryPanel: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(viewModel.analyses) { analysis in
-                        HistoryRow(analysis: analysis, onPlay: onPlay)
+                        HistoryRow(analysis: analysis, onPlay: onPlay) { analysis in
+                            Task { await viewModel.reanalyze(analysis) }
+                        }
                     }
                 }
             }
@@ -352,6 +356,7 @@ private struct HistoryPanel: View {
 private struct HistoryRow: View {
     let analysis: FormAnalysis
     let onPlay: (FormAnalysis, HistoryVideoKind) -> Void
+    let onReanalyze: (FormAnalysis) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -390,6 +395,12 @@ private struct HistoryRow: View {
                 VideoActionButton(title: "Original", icon: "play.rectangle.fill") {
                     onPlay(analysis, .original)
                 }
+
+                VideoActionButton(title: "Re-analyse", icon: "arrow.clockwise.circle") {
+                    onReanalyze(analysis)
+                }
+                .disabled(analysis.status == .processing || analysis.status == .queued)
+                .opacity(analysis.status == .processing || analysis.status == .queued ? 0.45 : 1)
 
                 VideoActionButton(title: "Analysed", icon: "waveform.path.ecg") {
                     onPlay(analysis, .analysed)
@@ -611,6 +622,7 @@ private struct FailurePanel: View {
 private struct AnalysisResultView: View {
     let analysis: FormAnalysis
     let videoURL: URL?
+    let onReanalyze: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -633,6 +645,25 @@ private struct AnalysisResultView: View {
                     CleanLiftPanel()
                 }
             }
+
+            Button(action: onReanalyze) {
+                HStack {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Re-run Analysis")
+                        .font(.system(size: 16, weight: .bold))
+                    Spacer()
+                }
+                .foregroundStyle(Color.white.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 15)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 }

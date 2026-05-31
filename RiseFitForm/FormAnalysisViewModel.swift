@@ -22,18 +22,31 @@ final class FormAnalysisViewModel: ObservableObject {
     @Published private(set) var analyses: [FormAnalysis] = []
     @Published private(set) var isLoadingHistory = false
     @Published private(set) var historyError: String?
+    @Published private(set) var userProfile: UserProfile?
 
     private let api: FormAnalysisAPI
+    private let authAPI = AuthAPI()
     private var pollingTask: Task<Void, Never>?
+    private let authToken: String?
 
     init(authToken: String?) {
         let api = FormAnalysisAPI()
         api.authToken = authToken
         self.api = api
+        self.authToken = authToken
     }
 
     deinit {
         pollingTask?.cancel()
+    }
+
+    func loadUserProfile() async {
+        guard let token = authToken else { return }
+        do {
+            userProfile = try await authAPI.fetchMe(token: token)
+        } catch {
+            print("Failed to load user profile: \(error)")
+        }
     }
 
     func loadSelectedVideo() async {

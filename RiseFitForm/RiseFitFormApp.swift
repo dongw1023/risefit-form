@@ -17,7 +17,7 @@ private struct RootView: View {
 
     var body: some View {
         if let token = authService.authToken {
-            ContentView(authToken: token)
+            MainTabView(authToken: token)
         } else {
             AuthView()
         }

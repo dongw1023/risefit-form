@@ -17,6 +17,16 @@
 		A10000000000000000000008 /* AuthAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* AuthAPI.swift */; };
 		A10000000000000000000009 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* AuthView.swift */; };
 		A10000000000000000000010 /* OAuthSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* OAuthSupport.swift */; };
+		A10000000000000000000011 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* Theme.swift */; };
+		A10000000000000000000012 /* AnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* AnalysisView.swift */; };
+		A10000000000000000000013 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* DashboardView.swift */; };
+		A10000000000000000000014 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* ProfileView.swift */; };
+		A10000000000000000000015 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* MainTabView.swift */; };
+		B10000000000000000000001 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* Theme.swift */; };
+		B10000000000000000000002 /* AnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* AnalysisView.swift */; };
+		B10000000000000000000003 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* DashboardView.swift */; };
+		B10000000000000000000004 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* ProfileView.swift */; };
+		B10000000000000000000005 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000005 /* MainTabView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +43,11 @@
 		A20000000000000000000011 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* OAuthSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthSupport.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* RiseFitForm.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RiseFitForm.entitlements; sourceTree = "<group>"; };
+		B20000000000000000000001 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 /* AnalysisView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisView.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		B20000000000000000000004 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		B20000000000000000000005 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +84,11 @@
 				A20000000000000000000008 /* LocalConfig.swift */,
 				A20000000000000000000013 /* RiseFitForm.entitlements */,
 				A20000000000000000000006 /* Info.plist */,
+				B20000000000000000000001 /* Theme.swift */,
+				B20000000000000000000002 /* AnalysisView.swift */,
+				B20000000000000000000003 /* DashboardView.swift */,
+				B20000000000000000000004 /* ProfileView.swift */,
+				B20000000000000000000005 /* MainTabView.swift */,
 			);
 			path = RiseFitForm;
 			sourceTree = "<group>";
@@ -159,6 +179,11 @@
 				A10000000000000000000008 /* AuthAPI.swift in Sources */,
 				A10000000000000000000009 /* AuthView.swift in Sources */,
 				A10000000000000000000010 /* OAuthSupport.swift in Sources */,
+				B10000000000000000000001 /* Theme.swift in Sources */,
+				B10000000000000000000002 /* AnalysisView.swift in Sources */,
+				B10000000000000000000003 /* DashboardView.swift in Sources */,
+				B10000000000000000000004 /* ProfileView.swift in Sources */,
+				B10000000000000000000005 /* MainTabView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

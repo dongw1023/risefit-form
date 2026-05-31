@@ -24,7 +24,7 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            AppBackground()
+            RiseAppBackground()
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
@@ -40,19 +40,21 @@ struct AuthView: View {
 
     private var brand: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: "waveform.path.ecg.rectangle")
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(Color.riseMint)
-                .frame(width: 56, height: 56)
-                .background(Color.white.opacity(0.09))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            ZStack {
+                Circle()
+                    .fill(Color.riseMint.opacity(0.12))
+                    .frame(width: 56, height: 56)
+                Image(systemName: "waveform.path.ecg.rectangle")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(Color.riseMint)
+            }
 
             Text("RiseFit Form")
-                .font(.system(size: 38, weight: .black))
+                .riseFont(.header)
                 .foregroundStyle(.white)
 
-            Text("Sign in to analyse your deadlift and squat videos with your RiseFit account.")
-                .font(.system(size: 16, weight: .medium))
+            Text("Sign in to analyse your lifting videos with your RiseFit account.")
+                .riseFont(.bodyBold)
                 .foregroundStyle(.white.opacity(0.66))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -75,7 +77,7 @@ struct AuthView: View {
                     .fill(Color.white.opacity(0.16))
                     .frame(height: 1)
                 Text("OR")
-                    .font(.system(size: 12, weight: .bold))
+                    .riseFont(.caption)
                     .foregroundStyle(.white.opacity(0.46))
                 Rectangle()
                     .fill(Color.white.opacity(0.16))
@@ -104,8 +106,8 @@ struct AuthView: View {
 
             if let message {
                 Text(message)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.72))
+                    .riseFont(.bodyMedium)
+                    .foregroundStyle(Color.riseError)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -120,25 +122,20 @@ struct AuthView: View {
                         Image(systemName: mode == .login ? "arrow.right.circle.fill" : "person.badge.plus.fill")
                     }
                     Text(mode == .login ? "Log In" : "Create Account")
-                        .font(.system(size: 16, weight: .bold))
                     Spacer()
                 }
-                .foregroundStyle(.black)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 15)
-                .background(Color.riseMint)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .riseMainButton()
             }
             .buttonStyle(.plain)
             .disabled(isSubmitting)
             .opacity(isSubmitting ? 0.72 : 1)
         }
-        .padding(18)
-        .background(Color.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(22)
+        .background(Color.riseSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.riseBorder, lineWidth: 1)
         )
     }
 

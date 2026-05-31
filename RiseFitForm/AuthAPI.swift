@@ -1,5 +1,19 @@
 import Foundation
 
+struct UserProfile: Codable {
+    let id: Int
+    let email: String
+    let name: String?
+    let picture: String?
+    let isSubscribed: Bool
+    let tier: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, email, name, picture, tier
+        case isSubscribed = "is_subscribed"
+    }
+}
+
 struct AuthAPI {
     enum SignUpResult {
         case signedIn(String)
@@ -9,7 +23,8 @@ struct AuthAPI {
     private let baseURL = LocalConfig.apiBaseURL
 
     func login(email: String, password: String) async throws -> String {
-        let response: AuthResponse = try await post(
+        let response: AuthResponse = try await perform(
+            method: "POST",
             path: "auth/login",
             body: LoginPayload(email: email, password: password)
         )
@@ -21,7 +36,8 @@ struct AuthAPI {
     }
 
     func signUp(name: String, email: String, password: String) async throws -> SignUpResult {
-        let response: AuthResponse = try await post(
+        let response: AuthResponse = try await perform(
+            method: "POST",
             path: "auth/signup",
             body: SignUpPayload(email: email, password: password, name: name)
         )
@@ -33,8 +49,17 @@ struct AuthAPI {
         return .verificationRequired(response.message ?? "Account created. Please verify your email before logging in.")
     }
 
+    func fetchMe(token: String) async throws -> UserProfile {
+        return try await perform(
+            method: "GET",
+            path: "auth/me",
+            authToken: token
+        )
+    }
+
     func appleLogin(identityToken: String, authorizationCode: String, name: String?, email: String?) async throws -> String {
-        let response: AuthResponse = try await post(
+        let response: AuthResponse = try await perform(
+            method: "POST",
             path: "auth/apple/native",
             body: AppleLoginPayload(
                 identityToken: identityToken,
@@ -50,14 +75,23 @@ struct AuthAPI {
         return token
     }
 
-    private func post<RequestBody: Encodable, ResponseBody: Decodable>(
+    private func perform<ResponseBody: Decodable>(
+        method: String,
         path: String,
-        body: RequestBody
+        body: (any Encodable)? = nil,
+        authToken: String? = nil
     ) async throws -> ResponseBody {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(body)
+        request.httpMethod = method
+        
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(body)
+        }
+        
+        if let authToken {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        }
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -66,7 +100,7 @@ struct AuthAPI {
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorResponse = try? JSONDecoder().decode(AuthResponse.self, from: data)
-            let message = errorResponse?.error ?? errorResponse?.message ?? "Request failed."
+            let message = errorResponse?.error ?? errorResponse?.message ?? "Request failed (status: \(httpResponse.statusCode))."
             throw AuthAPIError.message(message)
         }
 

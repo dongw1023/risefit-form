@@ -8,6 +8,8 @@ The backend lives in `../risefit-api`. This app should treat the backend as an a
 - poll `GET /form-analyses/{id}`
 - play `GET /form-analyses/{id}/video` when analysis completes
 
+The app does not call motion-engine directly. `risefit-api` enqueues Cloud Tasks work and updates the analysis record when the worker output appears.
+
 ## MVP User Flow
 
 1. Sign in with the existing RiseFit auth flow.

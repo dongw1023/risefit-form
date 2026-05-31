@@ -133,9 +133,9 @@ struct AppBackground: View {
     var body: some View {
         LinearGradient(
             colors: [
-                Color(red: 0.05, green: 0.06, blue: 0.07),
-                Color(red: 0.08, green: 0.10, blue: 0.10),
-                Color(red: 0.03, green: 0.03, blue: 0.04)
+                Color(red: 0.04, green: 0.05, blue: 0.06),
+                Color(red: 0.07, green: 0.08, blue: 0.09),
+                Color(red: 0.02, green: 0.02, blue: 0.03)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -152,33 +152,33 @@ private struct HeaderView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("RiseFit Form")
-                        .font(.system(size: 34, weight: .bold))
+                        .font(.system(size: 34, weight: .black))
                         .foregroundStyle(.white)
 
-                    Text("Video form checks for barbell lifts")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.62))
+                    Text("Precision lifting analysis")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.riseMint.opacity(0.85))
                 }
 
                 Spacer()
 
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     Button(action: onSignOut) {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.78))
-                            .frame(width: 44, height: 44)
-                            .background(Color.white.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .frame(width: 46, height: 46)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
 
                     ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.white.opacity(0.09))
-                            .frame(width: 48, height: 48)
+                        Circle()
+                            .fill(Color.riseMint.opacity(0.12))
+                            .frame(width: 50, height: 50)
                         Image(systemName: "waveform.path.ecg.rectangle")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Color.riseMint)
                     }
                 }
@@ -573,9 +573,10 @@ private struct ReadyPanel: View {
                 }
                 .foregroundStyle(Color.black)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 15)
+                .padding(.vertical, 16)
                 .background(Color.riseMint)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(color: Color.riseMint.opacity(0.3), radius: 10, x: 0, y: 4)
             }
             .buttonStyle(.plain)
         }
@@ -605,15 +606,17 @@ private struct ProgressPanel: View {
             }
 
             GeometryReader { proxy in
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.white.opacity(0.08))
-                    .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.riseMint)
-                            .frame(width: proxy.size.width * 0.58)
-                    }
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.white.opacity(0.06))
+                    
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.riseMint)
+                        .frame(width: proxy.size.width * 0.45)
+                        .shadow(color: Color.riseMint.opacity(0.5), radius: 4)
+                }
             }
-            .frame(height: 8)
+            .frame(height: 10)
         }
         .panelStyle()
     }
@@ -648,9 +651,9 @@ private struct AnalysisResultView: View {
             if let videoURL {
                 VideoPlayer(player: AVPlayer(url: videoURL))
                     .frame(height: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
             }
@@ -672,14 +675,14 @@ private struct AnalysisResultView: View {
                         .font(.system(size: 16, weight: .bold))
                     Spacer()
                 }
-                .foregroundStyle(Color.white.opacity(0.8))
+                .foregroundStyle(Color.white.opacity(0.9))
                 .padding(.horizontal, 16)
-                .padding(.vertical, 15)
-                .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(.vertical, 16)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -695,12 +698,12 @@ private struct ScorePanel: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Form Report")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 13, weight: .black))
                         .textCase(.uppercase)
                         .foregroundStyle(Color.riseMint)
 
-                    Text(report.exercise?.capitalized ?? "Lift")
-                        .font(.system(size: 24, weight: .bold))
+                    Text(report.exercise?.replacingOccurrences(of: "_", with: " ").capitalized ?? "Lift")
+                        .font(.system(size: 26, weight: .black))
                         .foregroundStyle(.white)
                 }
 
@@ -708,16 +711,17 @@ private struct ScorePanel: View {
 
                 ZStack {
                     Circle()
-                        .stroke(Color.white.opacity(0.10), lineWidth: 9)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 10)
                     Circle()
                         .trim(from: 0, to: CGFloat(min(max((report.formScore ?? 0) / 100, 0), 1)))
-                        .stroke(Color.riseMint, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                        .stroke(Color.riseMint, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                         .rotationEffect(.degrees(-90))
+                        .shadow(color: Color.riseMint.opacity(0.3), radius: 6)
                     Text(report.formGrade ?? "-")
-                        .font(.system(size: 28, weight: .black))
+                        .font(.system(size: 30, weight: .black))
                         .foregroundStyle(.white)
                 }
-                .frame(width: 84, height: 84)
+                .frame(width: 88, height: 88)
             }
 
             HStack(spacing: 10) {
@@ -737,18 +741,18 @@ private struct MetricTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(value)
-                .font(.system(size: 22, weight: .bold))
+                .font(.system(size: 24, weight: .black))
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.50))
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white.opacity(0.45))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.black.opacity(0.22))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(14)
+        .background(Color.black.opacity(0.25))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -756,9 +760,9 @@ private struct EventsPanel: View {
     let events: [DetectedFormEvent]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Coach Notes")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 20, weight: .black))
                 .foregroundStyle(.white)
 
             ForEach(events) { event in
@@ -766,9 +770,9 @@ private struct EventsPanel: View {
                     Image(systemName: "target")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(Color.riseMint)
-                        .frame(width: 30, height: 30)
-                        .background(Color.riseMint.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 7))
+                        .frame(width: 32, height: 32)
+                        .background(Color.riseMint.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
 
                     VStack(alignment: .leading, spacing: 5) {
                         HStack {
@@ -778,22 +782,22 @@ private struct EventsPanel: View {
                             Spacer()
                             if let startTime = event.startTime {
                                 Text("\(startTime, specifier: "%.1f")s")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.45))
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.4))
                             }
                         }
 
                         if let coachNote = event.coachNote {
                             Text(coachNote)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.62))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.6))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
-                .padding(12)
-                .background(Color.black.opacity(0.20))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .padding(14)
+                .background(Color.black.opacity(0.25))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
         .panelStyle()
@@ -808,10 +812,10 @@ private struct CleanLiftPanel: View {
                 .foregroundStyle(Color.riseMint)
             VStack(alignment: .leading, spacing: 4) {
                 Text("No major form events detected")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 18, weight: .black))
                     .foregroundStyle(.white)
                 Text("Replay the analysed video to inspect your bar path and positions.")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.62))
             }
         }
@@ -822,13 +826,13 @@ private struct CleanLiftPanel: View {
 private extension View {
     func panelStyle() -> some View {
         self
-            .padding(18)
+            .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(Color.white.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
             )
     }
 }

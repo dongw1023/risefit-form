@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 final class FormAnalysisViewModel: ObservableObject {
     enum State {
         case idle
+        case loading
         case selected(URL)
         case uploading
         case processing(FormAnalysis)
@@ -37,6 +38,7 @@ final class FormAnalysisViewModel: ObservableObject {
 
     func loadSelectedVideo() async {
         guard let selectedItem else { return }
+        state = .loading
 
         if let pickedVideo = try? await selectedItem.loadTransferable(type: PickedVideo.self) {
             state = .selected(pickedVideo.url)

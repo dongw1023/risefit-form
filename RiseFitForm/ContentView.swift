@@ -53,30 +53,43 @@ struct ContentView: View {
     }
 
     private var exercisePicker: some View {
-        HStack(spacing: 10) {
-            ForEach(Exercise.allCases) { exercise in
-                Button {
-                    viewModel.selectedExercise = exercise
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: exercise == .deadlift ? "figure.strengthtraining.traditional" : "figure.strengthtraining.functional")
-                        Text(exercise.title)
-                            .font(.system(size: 15, weight: .semibold))
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(Exercise.allCases) { exercise in
+                    Button {
+                        viewModel.selectedExercise = exercise
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: exerciseIcon(for: exercise))
+                            Text(exercise.title)
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .foregroundStyle(viewModel.selectedExercise == exercise ? Color.black : Color.white.opacity(0.78))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(viewModel.selectedExercise == exercise ? Color.riseMint : Color.white.opacity(0.08))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.white.opacity(viewModel.selectedExercise == exercise ? 0 : 0.10), lineWidth: 1)
+                        )
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .foregroundStyle(viewModel.selectedExercise == exercise ? Color.black : Color.white.opacity(0.78))
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(viewModel.selectedExercise == exercise ? Color.riseMint : Color.white.opacity(0.08))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.white.opacity(viewModel.selectedExercise == exercise ? 0 : 0.10), lineWidth: 1)
-                    )
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+        }
+    }
+
+    private func exerciseIcon(for exercise: Exercise) -> String {
+        switch exercise {
+        case .deadlift: return "figure.strengthtraining.traditional"
+        case .squat: return "figure.strengthtraining.functional"
+        case .benchPress: return "figure.arms.open"
+        case .latPullDown: return "figure.mindful.stretching"
+        case .bicepCurl: return "figure.strengthtraining.traditional"
+        default: return "figure.run"
         }
     }
 
@@ -85,6 +98,8 @@ struct ContentView: View {
         switch viewModel.state {
         case .idle:
             GuidancePanel()
+        case .loading:
+            ProgressPanel(title: "Preparing video", message: "Copying your clip from Photos...")
         case .selected:
             ReadyPanel {
                 Task { await viewModel.uploadSelectedVideo() }
@@ -415,7 +430,11 @@ private struct HistoryRow: View {
     }
 
     private var icon: String {
-        analysis.exercise == "deadlift" ? "figure.strengthtraining.traditional" : "figure.strengthtraining.functional"
+        switch Exercise(rawValue: analysis.exercise.lowercased()) {
+        case .deadlift: return "figure.strengthtraining.traditional"
+        case .squat: return "figure.strengthtraining.functional"
+        default: return "figure.run"
+        }
     }
 
     private var statusBadge: some View {

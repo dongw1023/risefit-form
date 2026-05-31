@@ -3,6 +3,9 @@ import Foundation
 enum Exercise: String, CaseIterable, Identifiable {
     case deadlift
     case squat
+    case benchPress = "bench_press"
+    case latPullDown = "lat_pull_down"
+    case bicepCurl = "bicep_curl"
 
     var id: String { rawValue }
 
@@ -10,6 +13,9 @@ enum Exercise: String, CaseIterable, Identifiable {
         switch self {
         case .deadlift: return "Deadlift"
         case .squat: return "Squat"
+        case .benchPress: return "Bench Press"
+        case .latPullDown: return "Lat Pull Down"
+        case .bicepCurl: return "Bicep Curl"
         }
     }
 }

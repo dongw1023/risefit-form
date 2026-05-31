@@ -16,7 +16,7 @@ final class FormAnalysisViewModel: ObservableObject {
         case failed(String)
     }
 
-    @Published var selectedExercise: Exercise = .deadlift
+    @Published var selectedExercise: Exercise = .auto
     @Published var selectedItem: PhotosPickerItem?
     @Published private(set) var state: State = .idle
     @Published private(set) var analyses: [FormAnalysis] = []

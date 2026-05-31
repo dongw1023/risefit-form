@@ -21,7 +21,6 @@ struct ContentView: View {
                         HeaderView {
                             authService.signOut()
                         }
-                        exercisePicker
                         UploadPanel(viewModel: viewModel)
                         stateView
                         HistoryPanel(viewModel: viewModel) { analysis, kind in
@@ -106,8 +105,8 @@ struct ContentView: View {
             }
         case .uploading:
             ProgressPanel(title: "Uploading video", message: "Preparing your clip for form analysis.")
-        case .processing(let analysis):
-            ProgressPanel(title: "Analysing \(analysis.exercise.capitalized)", message: "Tracking joints, phases, and visible form events.")
+        case .processing:
+            ProgressPanel(title: "Analysing Form", message: "AI is identifying joints and form events...")
         case .completed(let analysis):
             AnalysisResultView(analysis: analysis, videoURL: viewModel.videoURL(for: analysis)) {
                 Task { await viewModel.reanalyze(analysis) }

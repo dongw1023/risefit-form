@@ -1,6 +1,7 @@
 import Foundation
 
 enum Exercise: String, CaseIterable, Identifiable {
+    case auto
     case deadlift
     case squat
     case benchPress = "bench_press"
@@ -11,6 +12,7 @@ enum Exercise: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .auto: return "Auto-detect"
         case .deadlift: return "Deadlift"
         case .squat: return "Squat"
         case .benchPress: return "Bench Press"

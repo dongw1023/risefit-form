@@ -51,11 +51,11 @@ struct AuthView: View {
 
             Text("RiseFit Form")
                 .riseFont(.header)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
 
             Text("Sign in to analyse your lifting videos with your RiseFit account.")
                 .riseFont(.bodyBold)
-                .foregroundStyle(.white.opacity(0.66))
+                .foregroundStyle(Color.riseText.opacity(0.66))
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -74,13 +74,13 @@ struct AuthView: View {
 
             HStack(spacing: 12) {
                 Rectangle()
-                    .fill(Color.white.opacity(0.16))
+                    .fill(Color.riseText.opacity(0.16))
                     .frame(height: 1)
                 Text("OR")
                     .riseFont(.caption)
-                    .foregroundStyle(.white.opacity(0.46))
+                    .foregroundStyle(Color.riseText.opacity(0.46))
                 Rectangle()
-                    .fill(Color.white.opacity(0.16))
+                    .fill(Color.riseText.opacity(0.16))
                     .frame(height: 1)
             }
 
@@ -263,15 +263,15 @@ private struct SocialAuthButton: View {
                     .font(.system(size: 15, weight: .bold))
                 Spacer()
             }
-            .foregroundStyle(style == .dark ? Color.white : Color.black)
+            .foregroundStyle(style == .dark ? Color.white : Color.riseText)
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .padding(.horizontal, 16)
-            .background(style == .dark ? Color.black.opacity(0.70) : Color.white)
+            .background(style == .dark ? Color.riseBlack : Color.riseCard)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(style == .dark ? 0.12 : 0), lineWidth: 1)
+                    .stroke(style == .dark ? Color.clear : Color.riseLine, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -309,14 +309,14 @@ private extension View {
     func authFieldStyle() -> some View {
         self
             .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.riseText)
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
-            .background(Color.black.opacity(0.24))
+            .background(Color.riseSoftFill)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                    .stroke(Color.riseLine, lineWidth: 1)
             )
     }
 }

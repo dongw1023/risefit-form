@@ -3,6 +3,9 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var authService: AuthService
     @ObservedObject var viewModel: FormAnalysisViewModel
+
+    private let privacyURL = URL(string: "https://risefitai.com/privacy")!
+    private let termsURL = URL(string: "https://risefitai.com/terms")!
     
     var body: some View {
         ZStack {
@@ -12,7 +15,6 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     header
                     accountSection
-                    preferencesSection
                     aboutSection
                     signOutButton
                 }
@@ -27,7 +29,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Profile")
                 .riseFont(.header)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
             Text("Manage your account and preferences")
                 .riseFont(.bodyBold)
                 .foregroundStyle(Color.riseMint.opacity(0.85))
@@ -38,7 +40,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Account")
                 .riseFont(.subtitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
             
             HStack(spacing: 16) {
                 ZStack {
@@ -65,10 +67,10 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(viewModel.userProfile?.name ?? "RiseFit Athlete")
                         .riseFont(.bodyBold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.riseText)
                     Text(viewModel.userProfile?.email ?? "Connected via RiseFit API")
                         .riseFont(.caption)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(Color.riseText.opacity(0.5))
                 }
                 
                 Spacer()
@@ -77,40 +79,24 @@ struct ProfileView: View {
         }
     }
     
-    private var preferencesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Preferences")
-                .riseFont(.subtitle)
-                .foregroundStyle(.white)
-            
-            VStack(spacing: 0) {
-                PreferenceRow(icon: "camera.viewfinder", title: "Auto-detect Exercises", value: "Enabled")
-                Divider().background(Color.white.opacity(0.05)).padding(.horizontal, 16)
-                PreferenceRow(icon: "bolt.horizontal.fill", title: "Subscription Tier", value: viewModel.userProfile?.tier.capitalized ?? "Free")
-                Divider().background(Color.white.opacity(0.05)).padding(.horizontal, 16)
-                PreferenceRow(icon: "bell.fill", title: "Notifications", value: "On")
-            }
-            .background(Color.riseSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.riseBorder, lineWidth: 1)
-            )
-        }
-    }
-    
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Information")
                 .riseFont(.subtitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
             
             VStack(spacing: 0) {
-                PreferenceRow(icon: "info.circle.fill", title: "App Version", value: "1.2.0")
-                Divider().background(Color.white.opacity(0.05)).padding(.horizontal, 16)
-                PreferenceRow(icon: "shield.fill", title: "Privacy Policy", value: "")
-                Divider().background(Color.white.opacity(0.05)).padding(.horizontal, 16)
-                PreferenceRow(icon: "doc.text.fill", title: "Terms of Service", value: "")
+                Link(destination: privacyURL) {
+                    PreferenceRow(icon: "shield.fill", title: "Privacy Policy", value: "")
+                }
+                .buttonStyle(.plain)
+
+                Divider().background(Color.riseText.opacity(0.05)).padding(.horizontal, 16)
+
+                Link(destination: termsURL) {
+                    PreferenceRow(icon: "doc.text.fill", title: "Terms of Service", value: "")
+                }
+                .buttonStyle(.plain)
             }
             .background(Color.riseSurface)
             .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -130,7 +116,7 @@ struct ProfileView: View {
                 Text("Sign Out")
                 Spacer()
             }
-            .riseMainButton(color: Color.white.opacity(0.06))
+            .riseMainButton(color: Color.riseText.opacity(0.06))
             .foregroundStyle(Color.riseError)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -158,18 +144,18 @@ private struct PreferenceRow: View {
             
             Text(title)
                 .riseFont(.bodyBold)
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(Color.riseText.opacity(0.9))
             
             Spacer()
             
             Text(value)
                 .riseFont(.bodyMedium)
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(Color.riseText.opacity(0.4))
             
             if value.isEmpty {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.3))
+                    .foregroundStyle(Color.riseText.opacity(0.3))
             }
         }
         .padding(.horizontal, 16)

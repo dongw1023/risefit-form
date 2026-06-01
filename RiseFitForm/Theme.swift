@@ -1,17 +1,24 @@
 import SwiftUI
 
 extension Color {
-    static let riseMint = Color(red: 0.54, green: 0.97, blue: 0.73)
-    static let riseBlack = Color(red: 0.02, green: 0.02, blue: 0.03)
-    static let riseSurface = Color.white.opacity(0.05)
-    static let riseBorder = Color.white.opacity(0.08)
-    static let riseError = Color(red: 1.0, green: 0.46, blue: 0.35)
-    static let riseWarning = Color(red: 1.0, green: 0.78, blue: 0.38)
+    static let riseMint = Color(red: 0.18, green: 0.73, blue: 0.43)
+    static let riseBlack = Color(red: 0.08, green: 0.10, blue: 0.09)
+    static let riseText = Color(red: 0.08, green: 0.10, blue: 0.09)
+    static let riseSecondaryText = Color(red: 0.38, green: 0.43, blue: 0.40)
+    static let riseMutedText = Color(red: 0.58, green: 0.62, blue: 0.59)
+    static let riseCard = Color(red: 1.0, green: 1.0, blue: 0.98)
+    static let riseSurface = Color.riseCard
+    static let riseSoftFill = Color(red: 0.91, green: 0.95, blue: 0.91)
+    static let riseLine = Color(red: 0.84, green: 0.88, blue: 0.84)
+    static let riseBorder = Color.riseLine
+    static let riseTabBar = Color(red: 0.97, green: 0.99, blue: 0.96)
+    static let riseError = Color(red: 0.86, green: 0.22, blue: 0.16)
+    static let riseWarning = Color(red: 0.80, green: 0.52, blue: 0.10)
     
     static let riseBgGradient = [
-        Color(red: 0.04, green: 0.05, blue: 0.06),
-        Color(red: 0.07, green: 0.08, blue: 0.09),
-        Color(red: 0.02, green: 0.02, blue: 0.03)
+        Color(red: 0.98, green: 1.0, blue: 0.97),
+        Color(red: 0.94, green: 0.98, blue: 0.94),
+        Color(red: 0.90, green: 0.95, blue: 0.91)
     ]
 }
 
@@ -37,7 +44,7 @@ struct RiseMainButtonModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.system(size: 16, weight: .bold))
-            .foregroundStyle(color == .riseMint ? Color.black : .white)
+            .foregroundStyle(color == .riseMint ? Color.white : Color.riseText)
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
             .background(color)

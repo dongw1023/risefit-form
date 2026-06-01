@@ -49,20 +49,19 @@ struct MainTabView: View {
                 withAnimation(.spring()) { selectedTab = 2 }
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .background(
-            Color.riseBlack.opacity(0.8)
-                .background(.ultraThinMaterial)
-        )
-        .clipShape(Capsule())
+        .padding(.horizontal, 18)
+        .padding(.top, 12)
+        .padding(.bottom, 28)
+        .frame(maxWidth: .infinity)
+        .background(Color.riseTabBar)
         .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            Rectangle()
+                .fill(Color.riseLine)
+                .frame(height: 1),
+            alignment: .top
         )
-        .padding(.horizontal, 24)
-        .padding(.bottom, 34)
-        .shadow(color: Color.black.opacity(0.4), radius: 20, x: 0, y: 10)
+        .shadow(color: Color.riseText.opacity(0.10), radius: 14, x: 0, y: -6)
+        .ignoresSafeArea(edges: .bottom)
     }
 }
 
@@ -77,12 +76,12 @@ private struct TabItem: View {
             VStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: isSelected ? .bold : .medium))
-                    .foregroundStyle(isSelected ? Color.riseMint : .white.opacity(0.4))
+                    .foregroundStyle(isSelected ? Color.riseMint : Color.riseMutedText)
                     .frame(height: 26)
                 
                 Text(label)
                     .font(.system(size: 10, weight: isSelected ? .bold : .medium))
-                    .foregroundStyle(isSelected ? Color.riseMint : .white.opacity(0.4))
+                    .foregroundStyle(isSelected ? Color.riseMint : Color.riseMutedText)
             }
             .frame(maxWidth: .infinity)
         }

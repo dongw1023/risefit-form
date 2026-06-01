@@ -4,7 +4,7 @@ New iOS app for video-based deadlift and squat form analysis.
 
 The backend lives in `../risefit-api`. This app should treat the backend as an authenticated API:
 
-- upload video to `POST /form-analyses`
+- request `POST /form-analyses/upload-url`, upload the original video directly to GCS, then call `POST /form-analyses/from-upload`
 - poll `GET /form-analyses/{id}`
 - play `GET /form-analyses/{id}/video` when analysis completes
 
@@ -15,7 +15,7 @@ The app does not call motion-engine directly. `risefit-api` enqueues Cloud Tasks
 1. Sign in with the existing RiseFit auth flow.
 2. Pick `deadlift` or `squat`.
 3. Select a local video from Photos.
-4. Upload to `risefit-api`.
+4. Upload the original video directly to GCS with the API-signed URL.
 5. Show queued/processing/completed/failed state.
 6. Display score, grade, event list, and analysed video.
 
@@ -25,7 +25,7 @@ The app does not call motion-engine directly. `risefit-api` enqueues Cloud Tasks
 
 - `RiseFitFormApp.swift`: app entry point
 - `ContentView.swift`: upload, polling, result UI
-- `FormAnalysisAPI.swift`: multipart upload and polling client
+- `FormAnalysisAPI.swift`: signed GCS upload and polling client
 - `FormAnalysisModels.swift`: API response models
 - `FormAnalysisViewModel.swift`: selection, upload, and polling state
 

@@ -44,7 +44,7 @@ struct AnalysisView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Form Analysis")
                         .riseFont(.header)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.riseText)
 
                     Text("Precision lifting tracking")
                         .riseFont(.bodyBold)
@@ -63,10 +63,10 @@ struct AnalysisView: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                CapabilityPill(icon: "video.fill", title: "Upload")
-                CapabilityPill(icon: "figure.run", title: "Analyse")
-                CapabilityPill(icon: "play.rectangle.fill", title: "Replay")
+            HStack(spacing: 8) {
+                CapabilityPill(index: "1", title: "Pick")
+                CapabilityPill(index: "2", title: "Preview")
+                CapabilityPill(index: "3", title: "Analyse")
             }
         }
     }
@@ -78,12 +78,12 @@ struct AnalysisView: View {
             GuidancePanel()
         case .loading:
             ProgressPanel(title: "Preparing video", message: "Copying your clip from Photos...")
-        case .selected:
-            ReadyPanel {
+        case .selected(let videoURL):
+            ReadyPanel(videoURL: videoURL) {
                 Task { await viewModel.uploadSelectedVideo() }
             }
         case .uploading:
-            ProgressPanel(title: "Uploading video", message: "Preparing your clip for form analysis.")
+            ProgressPanel(title: "Uploading video", message: "Uploading the original clip for form analysis.")
         case .processing:
             ProgressPanel(title: "Analysing Form", message: "AI is identifying joints and form events...")
         case .completed(let analysis):
@@ -108,23 +108,28 @@ private struct VideoPlayback: Identifiable {
 }
 
 private struct CapabilityPill: View {
-    let icon: String
+    let index: String
     let title: String
 
     var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .bold))
+        HStack(spacing: 8) {
+            Text(index)
+                .font(.system(size: 10, weight: .black))
+                .foregroundStyle(Color.black)
+                .frame(width: 19, height: 19)
+                .background(Color.riseMint)
+                .clipShape(Circle())
+
             Text(title)
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
         }
-        .foregroundStyle(.white.opacity(0.8))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.06))
+        .foregroundStyle(Color.riseText.opacity(0.82))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.riseText.opacity(0.06))
         .clipShape(Capsule())
         .overlay(
-            Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1)
+            Capsule().stroke(Color.riseText.opacity(0.08), lineWidth: 1)
         )
     }
 }
@@ -133,7 +138,7 @@ private struct UploadPanel: View {
     @ObservedObject var viewModel: FormAnalysisViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Training clip")
@@ -143,11 +148,11 @@ private struct UploadPanel: View {
 
                     Text(uploadTitle)
                         .riseFont(.title)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.riseText)
 
                     Text("Best results come from a side view with your full body and bar visible.")
                         .riseFont(.bodyMedium)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Color.riseText.opacity(0.6))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -157,31 +162,62 @@ private struct UploadPanel: View {
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(Color.riseMint)
                     .frame(width: 56, height: 56)
-                    .background(Color.black.opacity(0.26))
+                    .background(Color.riseSoftFill)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
 
-            PhotosPicker(selection: $viewModel.selectedItem, matching: .videos) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Choose Video")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .bold))
-                }
-                .riseMainButton()
+            VStack(alignment: .leading, spacing: 12) {
+                StepLabel(number: "1", title: "Choose movement")
+                exercisePicker
             }
-            .buttonStyle(.plain)
-            .onChange(of: viewModel.selectedItem) {
-                Task { await viewModel.loadSelectedVideo() }
+
+            VStack(alignment: .leading, spacing: 12) {
+                StepLabel(number: "2", title: "Add training clip")
+
+                PhotosPicker(selection: $viewModel.selectedItem, matching: .videos) {
+                    HStack {
+                        Image(systemName: hasSelectedVideo ? "arrow.triangle.2.circlepath.circle.fill" : "plus.circle.fill")
+                        Text(hasSelectedVideo ? "Change Video" : "Choose Video")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .riseMainButton()
+                }
+                .buttonStyle(.plain)
+                .onChange(of: viewModel.selectedItem) { _ in
+                    Task { await viewModel.loadSelectedVideo() }
+                }
             }
         }
         .risePanel()
     }
 
+    private var exercisePicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(Exercise.allCases) { exercise in
+                    ExerciseChip(
+                        title: exercise.title,
+                        isSelected: viewModel.selectedExercise == exercise
+                    ) {
+                        viewModel.selectedExercise = exercise
+                    }
+                }
+            }
+        }
+    }
+
+    private var hasSelectedVideo: Bool {
+        if case .selected = viewModel.state {
+            return true
+        }
+        return false
+    }
+
     private var uploadTitle: String {
         if case .selected = viewModel.state {
-            return "Video ready"
+            return "Clip ready"
         }
         return "Pick a lift video"
     }
@@ -194,12 +230,56 @@ private struct UploadPanel: View {
     }
 }
 
+private struct StepLabel: View {
+    let number: String
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Text(number)
+                .font(.system(size: 11, weight: .black))
+                .foregroundStyle(Color.black)
+                .frame(width: 22, height: 22)
+                .background(Color.riseMint)
+                .clipShape(Circle())
+
+            Text(title)
+                .riseFont(.caption)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.riseText.opacity(0.54))
+        }
+    }
+}
+
+private struct ExerciseChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(isSelected ? Color.white : Color.riseSecondaryText)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(isSelected ? Color.riseMint : Color.riseSoftFill)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(isSelected ? Color.clear : Color.riseText.opacity(0.08), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct GuidancePanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Capture Checklist")
                 .riseFont(.subtitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
 
             ChecklistRow(icon: "person.crop.rectangle", text: "Keep the full body in frame")
             ChecklistRow(icon: "camera.metering.center.weighted", text: "Use a stable side angle")
@@ -219,11 +299,11 @@ private struct HistoryPanel: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Uploaded Videos")
                         .riseFont(.subtitle)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.riseText)
 
                     Text("Your recent form checks")
                         .riseFont(.bodyMedium)
-                        .foregroundStyle(.white.opacity(0.50))
+                        .foregroundStyle(Color.riseText.opacity(0.50))
                 }
 
                 Spacer()
@@ -235,7 +315,7 @@ private struct HistoryPanel: View {
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(Color.riseMint)
                         .frame(width: 38, height: 38)
-                        .background(Color.black.opacity(0.22))
+                        .background(Color.riseSoftFill)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
                 .buttonStyle(.plain)
@@ -247,7 +327,7 @@ private struct HistoryPanel: View {
                         .tint(Color.riseMint)
                     Text("Loading videos")
                         .riseFont(.bodyBold)
-                        .foregroundStyle(.white.opacity(0.66))
+                        .foregroundStyle(Color.riseText.opacity(0.66))
                 }
             } else if let historyError = viewModel.historyError {
                 Text(historyError)
@@ -257,7 +337,7 @@ private struct HistoryPanel: View {
             } else if viewModel.analyses.isEmpty {
                 Text("No uploaded videos yet.")
                     .riseFont(.bodyMedium)
-                    .foregroundStyle(.white.opacity(0.60))
+                    .foregroundStyle(Color.riseText.opacity(0.60))
             } else {
                 VStack(spacing: 12) {
                     ForEach(viewModel.analyses) { analysis in
@@ -291,14 +371,14 @@ private struct HistoryRow: View {
                     HStack(spacing: 8) {
                         Text(analysis.exercise.replacingOccurrences(of: "_", with: " ").capitalized)
                             .riseFont(.bodyBold)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.riseText)
 
                         statusBadge
                     }
 
                     Text(analysis.createdAt.formatted(date: .abbreviated, time: .shortened))
                         .riseFont(.caption)
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(Color.riseText.opacity(0.4))
                 }
 
                 Spacer()
@@ -330,7 +410,7 @@ private struct HistoryRow: View {
             }
         }
         .padding(14)
-        .background(Color.black.opacity(0.2))
+        .background(Color.riseSoftFill.opacity(0.65))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -380,14 +460,14 @@ private struct VideoActionButton: View {
                 Text(title)
                     .font(.system(size: 11, weight: .bold))
             }
-            .foregroundStyle(.white.opacity(0.9))
+            .foregroundStyle(Color.riseText.opacity(0.9))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(Color.white.opacity(0.06))
+            .background(Color.riseText.opacity(0.06))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.riseText.opacity(0.08), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -406,7 +486,7 @@ private struct VideoPlaybackView: View {
                 HStack {
                     Text(playback.title)
                         .riseFont(.title)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.riseText)
 
                     Spacer()
 
@@ -415,9 +495,9 @@ private struct VideoPlaybackView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.riseText)
                             .frame(width: 40, height: 40)
-                            .background(Color.white.opacity(0.1))
+                            .background(Color.riseText.opacity(0.1))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -427,7 +507,7 @@ private struct VideoPlaybackView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke(Color.riseText.opacity(0.1), lineWidth: 1)
                     )
             }
             .padding(24)
@@ -450,29 +530,31 @@ private struct ChecklistRow: View {
 
             Text(text)
                 .riseFont(.bodyMedium)
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(Color.riseText.opacity(0.8))
         }
     }
 }
 
 private struct ReadyPanel: View {
+    let videoURL: URL
     let onAnalyze: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(Color.riseMint)
+        VStack(alignment: .leading, spacing: 18) {
+            StepLabel(number: "3", title: "Preview and analyse")
 
+            VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Ready to analyse")
+                    Text("Review your clip")
                         .riseFont(.subtitle)
-                        .foregroundStyle(.white)
-                    Text("The backend will return a score, events, and annotated replay.")
+                        .foregroundStyle(Color.riseText)
+
+                    Text("Make sure the full lift is visible before sending it for analysis.")
                         .riseFont(.bodyMedium)
-                        .foregroundStyle(.white.opacity(0.62))
+                        .foregroundStyle(Color.riseText.opacity(0.62))
                 }
+
+                SelectedVideoPreview(url: videoURL)
             }
 
             Button(action: onAnalyze) {
@@ -490,12 +572,78 @@ private struct ReadyPanel: View {
     }
 }
 
+private struct SelectedVideoPreview: View {
+    let url: URL
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            VideoPlayer(player: player)
+                .frame(height: 260)
+                .background(Color.riseSoftFill)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.riseText.opacity(0.10), lineWidth: 1)
+                )
+
+            HStack(spacing: 7) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12, weight: .bold))
+                Text("Clip ready")
+                    .font(.system(size: 12, weight: .bold))
+            }
+            .foregroundStyle(Color.black)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Color.riseMint)
+            .clipShape(Capsule())
+            .padding(12)
+        }
+        .onAppear {
+            if player == nil {
+                player = AVPlayer(url: url)
+            }
+        }
+        .onDisappear {
+            player?.pause()
+        }
+        .onChange(of: url) { newURL in
+            player?.pause()
+            player = AVPlayer(url: newURL)
+        }
+    }
+}
+
+private struct ProcessingStageRow: View {
+    let icon: String
+    let title: String
+    let isActive: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(isActive ? Color.black : Color.riseMint)
+                .frame(width: 26, height: 26)
+                .background(isActive ? Color.riseMint : Color.riseMint.opacity(0.10))
+                .clipShape(Circle())
+
+            Text(title)
+                .riseFont(.caption)
+                .foregroundStyle(Color.riseText.opacity(isActive ? 0.82 : 0.48))
+
+            Spacer()
+        }
+    }
+}
+
 private struct ProgressPanel: View {
     let title: String
     let message: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
                 ProgressView()
                     .tint(Color.riseMint)
@@ -504,25 +652,34 @@ private struct ProgressPanel: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(title)
                         .riseFont(.subtitle)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.riseText)
                     Text(message)
                         .riseFont(.bodyMedium)
-                        .foregroundStyle(.white.opacity(0.62))
+                        .foregroundStyle(Color.riseText.opacity(0.62))
                 }
             }
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.white.opacity(0.06))
-                    
+                        .fill(Color.riseText.opacity(0.06))
+
                     RoundedRectangle(cornerRadius: 6)
                         .fill(Color.riseMint)
-                        .frame(width: proxy.size.width * 0.45)
+                        .frame(width: proxy.size.width * 0.55)
                         .shadow(color: Color.riseMint.opacity(0.5), radius: 4)
                 }
             }
             .frame(height: 10)
+
+            VStack(spacing: 10) {
+                ProcessingStageRow(icon: "film.fill", title: "Preparing video", isActive: title.contains("Preparing"))
+                ProcessingStageRow(icon: "arrow.up.circle.fill", title: "Uploading clip", isActive: title.contains("Uploading"))
+                ProcessingStageRow(icon: "waveform.path.ecg", title: "Reading movement", isActive: title.contains("Analysing"))
+            }
+            .padding(14)
+            .background(Color.riseSoftFill.opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .risePanel()
     }
@@ -538,10 +695,10 @@ private struct FailurePanel: View {
                 .foregroundStyle(Color.riseError)
             Text("Analysis failed")
                 .riseFont(.subtitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
             Text(message)
                 .riseFont(.bodyMedium)
-                .foregroundStyle(.white.opacity(0.65))
+                .foregroundStyle(Color.riseText.opacity(0.65))
         }
         .risePanel()
     }
@@ -560,7 +717,7 @@ private struct AnalysisResultView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke(Color.riseText.opacity(0.1), lineWidth: 1)
                     )
             }
 
@@ -581,14 +738,14 @@ private struct AnalysisResultView: View {
                         .riseFont(.bodyBold)
                     Spacer()
                 }
-                .foregroundStyle(Color.white.opacity(0.9))
+                .foregroundStyle(Color.riseText.opacity(0.9))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
-                .background(Color.white.opacity(0.06))
+                .background(Color.riseText.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Color.riseText.opacity(0.08), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -610,14 +767,14 @@ private struct ScorePanel: View {
 
                     Text(report.exercise?.replacingOccurrences(of: "_", with: " ").capitalized ?? "Lift")
                         .riseFont(.title)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.riseText)
                 }
 
                 Spacer()
 
                 ZStack {
                     Circle()
-                        .stroke(Color.white.opacity(0.06), lineWidth: 10)
+                        .stroke(Color.riseText.opacity(0.06), lineWidth: 10)
                     Circle()
                         .trim(from: 0, to: CGFloat(min(max((report.formScore ?? 0) / 100, 0), 1)))
                         .stroke(Color.riseMint, style: StrokeStyle(lineWidth: 10, lineCap: .round))
@@ -626,7 +783,7 @@ private struct ScorePanel: View {
                     Text(report.formGrade ?? "-")
                         .riseFont(.header)
                         .font(.system(size: 30))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.riseText)
                 }
                 .frame(width: 90, height: 88)
             }
@@ -650,16 +807,16 @@ private struct MetricTile: View {
             Text(value)
                 .riseFont(.title)
                 .font(.system(size: 24))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(title)
                 .riseFont(.caption)
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(Color.riseText.opacity(0.45))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Color.black.opacity(0.25))
+        .background(Color.riseSoftFill.opacity(0.7))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -671,7 +828,7 @@ private struct EventsPanel: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Coach Notes")
                 .riseFont(.subtitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
 
             ForEach(events) { event in
                 HStack(alignment: .top, spacing: 14) {
@@ -686,25 +843,25 @@ private struct EventsPanel: View {
                         HStack {
                             Text(event.error)
                                 .riseFont(.bodyBold)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color.riseText)
                             Spacer()
                             if let startTime = event.startTime {
                                 Text("\(startTime, specifier: "%.1f")s")
                                     .riseFont(.caption)
-                                    .foregroundStyle(.white.opacity(0.4))
+                                    .foregroundStyle(Color.riseText.opacity(0.4))
                             }
                         }
 
                         if let coachNote = event.coachNote {
                             Text(coachNote)
                                 .riseFont(.bodyMedium)
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(Color.riseText.opacity(0.6))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
                 .padding(16)
-                .background(Color.black.opacity(0.25))
+                .background(Color.riseSoftFill.opacity(0.7))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
@@ -722,10 +879,10 @@ private struct CleanLiftPanel: View {
                 Text("No major form events detected")
                     .riseFont(.subtitle)
                     .font(.system(size: 18))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.riseText)
                 Text("Replay the analysed video to inspect your bar path and positions.")
                     .riseFont(.bodyMedium)
-                    .foregroundStyle(.white.opacity(0.62))
+                    .foregroundStyle(Color.riseText.opacity(0.62))
             }
         }
         .panelStyle()
@@ -737,11 +894,11 @@ private extension View {
         self
             .padding(22)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.05))
+            .background(Color.riseText.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.riseText.opacity(0.08), lineWidth: 1)
             )
     }
 }

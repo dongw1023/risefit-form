@@ -1,4 +1,3 @@
-import AVFoundation
 import Foundation
 import PhotosUI
 import SwiftUI
@@ -76,8 +75,7 @@ final class FormAnalysisViewModel: ObservableObject {
         state = .uploading
 
         do {
-            let uploadURL = try await compressedVideoForUpload(videoURL)
-            let analysis = try await api.createAnalysis(exercise: selectedExercise, videoURL: uploadURL)
+            let analysis = try await api.createAnalysis(exercise: selectedExercise, videoURL: videoURL)
             state = .processing(analysis)
             await loadHistory()
             startPolling(id: analysis.id)
@@ -155,16 +153,6 @@ final class FormAnalysisViewModel: ObservableObject {
 
         return try copyReadableVideoToTemporaryDirectory(sourceURL)
     }
-
-    private func compressedVideoForUpload(_ sourceURL: URL) async throws -> URL {
-        let fileSize = try FileManager.default.attributesOfItem(atPath: sourceURL.path)[.size] as? NSNumber
-
-        if let fileSize, fileSize.intValue <= VideoCompressor.maxUploadBytes {
-            return sourceURL
-        }
-
-        return try await VideoCompressor.compressForUpload(sourceURL)
-    }
 }
 
 private func temporaryVideoURL(for sourceURL: URL) -> URL {
@@ -190,63 +178,6 @@ private struct PickedVideo: Transferable {
             SentTransferredFile(video.url)
         } importing: { received in
             PickedVideo(url: try copyReadableVideoToTemporaryDirectory(received.file))
-        }
-    }
-}
-
-private enum VideoCompressor {
-    static let maxUploadBytes = 24 * 1024 * 1024
-
-    static func compressForUpload(_ sourceURL: URL) async throws -> URL {
-        let asset = AVURLAsset(url: sourceURL)
-        let compatiblePresets = AVAssetExportSession.exportPresets(compatibleWith: asset)
-        let preferredPresets = [
-            AVAssetExportPreset1280x720,
-            AVAssetExportPresetMediumQuality,
-            AVAssetExportPresetLowQuality
-        ].filter { compatiblePresets.contains($0) }
-
-        for preset in preferredPresets {
-            let compressedURL = try await export(asset: asset, preset: preset)
-            let fileSize = try FileManager.default.attributesOfItem(atPath: compressedURL.path)[.size] as? NSNumber
-            if let fileSize, fileSize.intValue <= maxUploadBytes {
-                return compressedURL
-            }
-        }
-
-        throw APIError.local("The video is still too large after compression. Please trim it to a shorter clip and try again.")
-    }
-
-    private static func export(asset: AVURLAsset, preset: String) async throws -> URL {
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: preset) else {
-            throw APIError.local("Could not prepare the video for upload.")
-        }
-
-        let destination = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("mp4")
-
-        if FileManager.default.fileExists(atPath: destination.path) {
-            try FileManager.default.removeItem(at: destination)
-        }
-
-        exportSession.outputURL = destination
-        exportSession.outputFileType = .mp4
-        exportSession.shouldOptimizeForNetworkUse = true
-
-        return try await withCheckedThrowingContinuation { continuation in
-            exportSession.exportAsynchronously {
-                switch exportSession.status {
-                case .completed:
-                    continuation.resume(returning: destination)
-                case .failed:
-                    continuation.resume(throwing: exportSession.error ?? APIError.local("Video compression failed."))
-                case .cancelled:
-                    continuation.resume(throwing: APIError.local("Video compression was cancelled."))
-                default:
-                    continuation.resume(throwing: APIError.local("Video compression did not finish."))
-                }
-            }
         }
     }
 }

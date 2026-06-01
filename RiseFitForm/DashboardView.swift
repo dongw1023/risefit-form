@@ -25,7 +25,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Dashboard")
                 .riseFont(.header)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
             Text("Your lifting progress at a glance")
                 .riseFont(.bodyBold)
                 .foregroundStyle(Color.riseMint.opacity(0.85))
@@ -49,14 +49,14 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Exercise Distribution")
                 .riseFont(.subtitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
 
             VStack(spacing: 12) {
                 let distribution = calculateDistribution()
                 if distribution.isEmpty {
                     Text("Start analysing to see your distribution.")
                         .riseFont(.bodyMedium)
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(Color.riseText.opacity(0.4))
                         .padding(.vertical, 10)
                 } else {
                     ForEach(distribution.sorted(by: { $0.value > $1.value }), id: \.key) { key, value in
@@ -72,12 +72,12 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Recent Activity")
                 .riseFont(.subtitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
 
             if viewModel.analyses.isEmpty {
                 Text("No activity yet.")
                     .riseFont(.bodyMedium)
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(Color.riseText.opacity(0.4))
                     .risePanel()
             } else {
                 VStack(spacing: 12) {
@@ -135,10 +135,10 @@ private struct StatCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(value)
                     .riseFont(.title)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.riseText)
                 Text(title)
                     .riseFont(.caption)
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(Color.riseText.opacity(0.5))
             }
         }
         .risePanel(padding: 18)
@@ -155,17 +155,17 @@ private struct DistributionRow: View {
             HStack {
                 Text(title)
                     .riseFont(.bodyBold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.riseText)
                 Spacer()
                 Text("\(count) lifts")
                     .riseFont(.caption)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Color.riseText.opacity(0.6))
             }
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.06))
+                        .fill(Color.riseText.opacity(0.06))
                     
                     RoundedRectangle(cornerRadius: 4)
                         .fill(Color.riseMint)
@@ -184,18 +184,18 @@ private struct ActivityRow: View {
         HStack(spacing: 14) {
             Image(systemName: exerciseIcon(for: analysis.exercise))
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.riseText)
                 .frame(width: 32, height: 32)
-                .background(Color.white.opacity(0.1))
+                .background(Color.riseText.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(analysis.exercise.replacingOccurrences(of: "_", with: " ").capitalized)
                     .riseFont(.bodyBold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.riseText)
                 Text(analysis.createdAt.formatted(date: .abbreviated, time: .omitted))
                     .riseFont(.caption)
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(Color.riseText.opacity(0.4))
             }
 
             Spacer()
@@ -207,7 +207,7 @@ private struct ActivityRow: View {
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.04))
+        .background(Color.riseText.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     

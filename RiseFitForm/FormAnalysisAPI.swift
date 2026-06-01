@@ -10,14 +10,46 @@ final class FormAnalysisAPI {
         return decoder
     }()
 
-    func createAnalysis(exercise: Exercise, videoURL: URL) async throws -> FormAnalysis {
-        let boundary = "Boundary-\(UUID().uuidString)"
-        var request = URLRequest(url: baseURL.appendingPathComponent("form-analyses"))
-        request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        applyAuth(to: &request)
+    private let encoder = JSONEncoder()
 
-        request.httpBody = try multipartBody(boundary: boundary, exercise: exercise, videoURL: videoURL)
+    func createAnalysis(exercise: Exercise, videoURL: URL) async throws -> FormAnalysis {
+        let upload = try await createUploadURL(filename: videoURL.lastPathComponent, contentType: contentType(for: videoURL))
+        try await uploadVideo(videoURL, to: upload.uploadURL, contentType: upload.contentType)
+        return try await createAnalysisFromUploadedVideo(exercise: exercise, upload: upload)
+    }
+
+    private func createUploadURL(filename: String, contentType: String) async throws -> FormUploadURL {
+        var request = URLRequest(url: baseURL.appendingPathComponent("form-analyses/upload-url"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuth(to: &request)
+        request.httpBody = try encoder.encode(FormUploadURLRequest(filename: filename, contentType: contentType))
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+        return try decoder.decode(FormUploadURL.self, from: data)
+    }
+
+    private func uploadVideo(_ videoURL: URL, to uploadURL: URL, contentType: String) async throws {
+        var request = URLRequest(url: uploadURL)
+        request.httpMethod = "PUT"
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await URLSession.shared.upload(for: request, fromFile: videoURL)
+        try validateUpload(response: response, data: data)
+    }
+
+    private func createAnalysisFromUploadedVideo(exercise: Exercise, upload: FormUploadURL) async throws -> FormAnalysis {
+        var request = URLRequest(url: baseURL.appendingPathComponent("form-analyses/from-upload"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuth(to: &request)
+        request.httpBody = try encoder.encode(CreateUploadedAnalysisRequest(
+            analysisID: upload.analysisID,
+            exercise: exercise.rawValue,
+            objectName: upload.objectName
+        ))
+
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response: response, data: data)
         return try decoder.decode(FormAnalysis.self, from: data)
@@ -95,12 +127,61 @@ final class FormAnalysisAPI {
         }
     }
 
-    private func multipartBody(boundary: String, exercise: Exercise, videoURL: URL) throws -> Data {
-        var data = Data()
-        data.appendField(name: "exercise", value: exercise.rawValue, boundary: boundary)
-        try data.appendFile(name: "video", fileURL: videoURL, mimeType: "video/mp4", boundary: boundary)
-        data.append("--\(boundary)--\r\n".data(using: .utf8)!)
-        return data
+    private func validateUpload(response: URLResponse, data: Data) throws {
+        guard let httpResponse = response as? HTTPURLResponse else { return }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let message = String(data: data, encoding: .utf8) ?? "Upload failed"
+            throw APIError.server(status: httpResponse.statusCode, message: message)
+        }
+    }
+
+    private func contentType(for videoURL: URL) -> String {
+        switch videoURL.pathExtension.lowercased() {
+        case "mov":
+            return "video/quicktime"
+        case "m4v":
+            return "video/x-m4v"
+        default:
+            return "video/mp4"
+        }
+    }
+}
+
+private struct FormUploadURLRequest: Encodable {
+    let filename: String
+    let contentType: String
+
+    enum CodingKeys: String, CodingKey {
+        case filename
+        case contentType = "content_type"
+    }
+}
+
+private struct FormUploadURL: Decodable {
+    let analysisID: UUID
+    let objectName: String
+    let uploadURL: URL
+    let contentType: String
+    let expiresAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case analysisID = "analysis_id"
+        case objectName = "object_name"
+        case uploadURL = "upload_url"
+        case contentType = "content_type"
+        case expiresAt = "expires_at"
+    }
+}
+
+private struct CreateUploadedAnalysisRequest: Encodable {
+    let analysisID: UUID
+    let exercise: String
+    let objectName: String
+
+    enum CodingKeys: String, CodingKey {
+        case analysisID = "analysis_id"
+        case exercise
+        case objectName = "object_name"
     }
 }
 
@@ -123,23 +204,5 @@ enum APIError: LocalizedError {
         case .local(let message):
             return message
         }
-    }
-}
-
-private extension Data {
-    mutating func appendField(name: String, value: String, boundary: String) {
-        append("--\(boundary)\r\n".data(using: .utf8)!)
-        append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
-        append("\(value)\r\n".data(using: .utf8)!)
-    }
-
-    mutating func appendFile(name: String, fileURL: URL, mimeType: String, boundary: String) throws {
-        let filename = fileURL.lastPathComponent.isEmpty ? "upload.mp4" : fileURL.lastPathComponent
-        let mimeType = fileURL.pathExtension.lowercased() == "mov" ? "video/quicktime" : mimeType
-        append("--\(boundary)\r\n".data(using: .utf8)!)
-        append("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
-        append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
-        append(try Data(contentsOf: fileURL))
-        append("\r\n".data(using: .utf8)!)
     }
 }

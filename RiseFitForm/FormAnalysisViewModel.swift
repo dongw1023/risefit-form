@@ -15,7 +15,12 @@ final class FormAnalysisViewModel: ObservableObject {
         case failed(String)
     }
 
-    @Published var selectedExercise: Exercise = .auto
+    @Published var selectedExercise: Exercise = .deadlift
+    @Published var trainingConsent: Bool {
+        didSet {
+            UserDefaults.standard.set(trainingConsent, forKey: Self.trainingConsentKey)
+        }
+    }
     @Published var selectedItem: PhotosPickerItem?
     @Published private(set) var state: State = .idle
     @Published private(set) var analyses: [FormAnalysis] = []
@@ -27,12 +32,14 @@ final class FormAnalysisViewModel: ObservableObject {
     private let authAPI = AuthAPI()
     private var pollingTask: Task<Void, Never>?
     private let authToken: String?
+    private static let trainingConsentKey = "formAnalysisContributorBetaAccepted"
 
     init(authToken: String?) {
         let api = FormAnalysisAPI()
         api.authToken = authToken
         self.api = api
         self.authToken = authToken
+        self.trainingConsent = UserDefaults.standard.bool(forKey: Self.trainingConsentKey)
     }
 
     deinit {
@@ -72,10 +79,14 @@ final class FormAnalysisViewModel: ObservableObject {
 
     func uploadSelectedVideo() async {
         guard case .selected(let videoURL) = state else { return }
+        guard trainingConsent else {
+            state = .failed("Join the RiseFit Contributor Beta before uploading a video for analysis.")
+            return
+        }
         state = .uploading
 
         do {
-            let analysis = try await api.createAnalysis(exercise: selectedExercise, videoURL: videoURL)
+            let analysis = try await api.createAnalysis(exercise: selectedExercise, videoURL: videoURL, trainingConsent: trainingConsent)
             state = .processing(analysis)
             await loadHistory()
             startPolling(id: analysis.id)
@@ -92,6 +103,18 @@ final class FormAnalysisViewModel: ObservableObject {
         } catch {
             state = .failed(error.localizedDescription)
         }
+    }
+
+    func submitFeedback(for analysis: FormAnalysis, rating: FormAnalysisFeedbackRating, note: String?) async throws {
+        try await api.submitFeedback(analysisID: analysis.id, rating: rating, note: note)
+    }
+
+    func fetchLatestAnalysis(_ analysis: FormAnalysis) async throws -> FormAnalysis {
+        try await api.fetchAnalysis(id: analysis.id)
+    }
+
+    func showFailure(_ message: String) {
+        state = .failed(message)
     }
 
     func videoURL(for analysis: FormAnalysis) -> URL? {

@@ -1,10 +1,13 @@
 import AVKit
+import Foundation
 import PhotosUI
 import SwiftUI
+import UIKit
 
 struct AnalysisView: View {
     @ObservedObject var viewModel: FormAnalysisViewModel
     @State private var playback: VideoPlayback?
+    @State private var reportDetail: FormAnalysis?
 
     var body: some View {
         ZStack {
@@ -15,18 +18,30 @@ struct AnalysisView: View {
                     header
                     UploadPanel(viewModel: viewModel)
                     stateView
-                    HistoryPanel(viewModel: viewModel) { analysis, kind in
-                        switch kind {
-                        case .original:
-                            if let url = viewModel.originalVideoURL(for: analysis) {
-                                playback = VideoPlayback(title: "Original \(analysis.exercise.capitalized)", url: url)
+                    HistoryPanel(
+                        viewModel: viewModel,
+                        onPlay: { analysis, kind in
+                            switch kind {
+                            case .original:
+                                if let url = viewModel.originalVideoURL(for: analysis) {
+                                    playback = VideoPlayback(title: "Original \(analysis.exercise.capitalized)", url: url)
+                                }
+                            case .analysed:
+                                if let url = viewModel.videoURL(for: analysis) {
+                                    playback = VideoPlayback(title: "Analysed \(analysis.exercise.capitalized)", url: url)
+                                }
                             }
-                        case .analysed:
-                            if let url = viewModel.videoURL(for: analysis) {
-                                playback = VideoPlayback(title: "Analysed \(analysis.exercise.capitalized)", url: url)
+                        },
+                        onOpenReport: { analysis in
+                            Task {
+                                do {
+                                    reportDetail = try await viewModel.fetchLatestAnalysis(analysis)
+                                } catch {
+                                    viewModel.showFailure(error.localizedDescription)
+                                }
                             }
                         }
-                    }
+                    )
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 24)
@@ -36,17 +51,30 @@ struct AnalysisView: View {
         .sheet(item: $playback) { playback in
             VideoPlaybackView(playback: playback)
         }
+        .sheet(item: $reportDetail) { analysis in
+            AnalysisReportDetailView(
+                analysis: analysis,
+                videoURL: viewModel.videoURL(for: analysis),
+                onReanalyze: {
+                    reportDetail = nil
+                    Task { await viewModel.reanalyze(analysis) }
+                },
+                onSubmitFeedback: { rating, note in
+                    try await viewModel.submitFeedback(for: analysis, rating: rating, note: note)
+                }
+            )
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Form Analysis")
+                    Text("Form Analysis Beta")
                         .riseFont(.header)
                         .foregroundStyle(Color.riseText)
 
-                    Text("Precision lifting tracking")
+                    Text("Research contributor beta")
                         .riseFont(.bodyBold)
                         .foregroundStyle(Color.riseMint.opacity(0.85))
                 }
@@ -64,9 +92,9 @@ struct AnalysisView: View {
             }
 
             HStack(spacing: 8) {
-                CapabilityPill(index: "1", title: "Pick")
-                CapabilityPill(index: "2", title: "Preview")
-                CapabilityPill(index: "3", title: "Analyse")
+                CapabilityPill(index: "1", title: "Consent")
+                CapabilityPill(index: "2", title: "Upload")
+                CapabilityPill(index: "3", title: "Review")
             }
         }
     }
@@ -77,18 +105,18 @@ struct AnalysisView: View {
         case .idle:
             GuidancePanel()
         case .loading:
-            ProgressPanel(title: "Preparing video", message: "Copying your clip from Photos...")
-        case .selected(let videoURL):
-            ReadyPanel(videoURL: videoURL) {
-                Task { await viewModel.uploadSelectedVideo() }
-            }
+            EmptyView()
+        case .selected:
+            EmptyView()
         case .uploading:
-            ProgressPanel(title: "Uploading video", message: "Uploading the original clip for form analysis.")
+            ProgressPanel(title: "Uploading video", message: "Uploading your beta contributor clip for form analysis.")
         case .processing:
-            ProgressPanel(title: "Analysing Form", message: "AI is identifying joints and form events...")
+            ProgressPanel(title: "Analysing Form", message: "The beta model is identifying joints and form events...")
         case .completed(let analysis):
             AnalysisResultView(analysis: analysis, videoURL: viewModel.videoURL(for: analysis)) {
                 Task { await viewModel.reanalyze(analysis) }
+            } onSubmitFeedback: { rating, note in
+                try await viewModel.submitFeedback(for: analysis, rating: rating, note: note)
             }
         case .failed(let message):
             FailurePanel(message: message)
@@ -141,7 +169,7 @@ private struct UploadPanel: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Training clip")
+                    Text("Contributor beta")
                         .riseFont(.caption)
                         .textCase(.uppercase)
                         .foregroundStyle(Color.riseMint)
@@ -150,7 +178,7 @@ private struct UploadPanel: View {
                         .riseFont(.title)
                         .foregroundStyle(Color.riseText)
 
-                    Text("Best results come from a side view with your full body and bar visible.")
+                    Text("RiseFit is still learning from real lifting videos. Beta analysis may be inaccurate and is not medical, safety, or professional coaching advice.")
                         .riseFont(.bodyMedium)
                         .foregroundStyle(Color.riseText.opacity(0.6))
                         .fixedSize(horizontal: false, vertical: true)
@@ -188,9 +216,91 @@ private struct UploadPanel: View {
                 .onChange(of: viewModel.selectedItem) { _ in
                     Task { await viewModel.loadSelectedVideo() }
                 }
+
+                uploadStateContent
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                StepLabel(number: "3", title: "Join contributor beta")
+
+                Toggle(isOn: $viewModel.trainingConsent) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("I agree and join the beta")
+                            .riseFont(.bodyBold)
+                            .foregroundStyle(Color.riseText)
+
+                        Text("I allow RiseFit to use my uploaded exercise videos, cropped frames, pose keypoints, movement labels, predictions, analysis results, and related derived movement data to improve form-analysis models.")
+                            .riseFont(.caption)
+                            .foregroundStyle(Color.riseText.opacity(0.58))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .toggleStyle(.switch)
+                .tint(Color.riseMint)
+                .padding(14)
+                .background(Color.riseSoftFill.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.riseText.opacity(0.08), lineWidth: 1)
+                )
+
+                Text("This beta is currently available only to users who choose to participate in the Contributor Program.")
+                    .riseFont(.caption)
+                    .foregroundStyle(Color.riseText.opacity(0.48))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                analyzeActionContent
             }
         }
         .risePanel()
+    }
+
+    @ViewBuilder
+    private var uploadStateContent: some View {
+        switch viewModel.state {
+        case .loading:
+            InlineProgressPanel(title: "Preparing video", message: "Copying your clip from Photos...")
+        case .selected(let videoURL):
+            ReadyPanel(videoURL: videoURL)
+        default:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var analyzeActionContent: some View {
+        if case .selected = viewModel.state {
+            if !viewModel.trainingConsent {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.riseWarning)
+                    Text("Join the Contributor Beta before uploading. This beta requires permission to use submitted videos and derived movement data for model improvement.")
+                        .riseFont(.caption)
+                        .foregroundStyle(Color.riseText.opacity(0.62))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(14)
+                .background(Color.riseWarning.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+
+            Button {
+                Task { await viewModel.uploadSelectedVideo() }
+            } label: {
+                HStack {
+                    Image(systemName: "bolt.fill")
+                    Text("Analyze Beta Clip")
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                }
+                .riseMainButton()
+            }
+            .buttonStyle(.plain)
+            .disabled(!viewModel.trainingConsent)
+            .opacity(viewModel.trainingConsent ? 1 : 0.45)
+        }
     }
 
     private var exercisePicker: some View {
@@ -292,6 +402,7 @@ private struct GuidancePanel: View {
 private struct HistoryPanel: View {
     @ObservedObject var viewModel: FormAnalysisViewModel
     let onPlay: (FormAnalysis, HistoryVideoKind) -> Void
+    let onOpenReport: (FormAnalysis) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -341,7 +452,12 @@ private struct HistoryPanel: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(viewModel.analyses) { analysis in
-                        HistoryRow(analysis: analysis, onPlay: onPlay) { analysis in
+                        HistoryRow(
+                            analysis: analysis,
+                            thumbnailURL: viewModel.originalVideoURL(for: analysis),
+                            onPlay: onPlay,
+                            onOpenReport: onOpenReport
+                        ) { analysis in
                             Task { await viewModel.reanalyze(analysis) }
                         }
                     }
@@ -354,18 +470,15 @@ private struct HistoryPanel: View {
 
 private struct HistoryRow: View {
     let analysis: FormAnalysis
+    let thumbnailURL: URL?
     let onPlay: (FormAnalysis, HistoryVideoKind) -> Void
+    let onOpenReport: (FormAnalysis) -> Void
     let onReanalyze: (FormAnalysis) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Color.riseMint)
-                    .frame(width: 36, height: 36)
-                    .background(Color.riseMint.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                VideoThumbnailView(url: thumbnailURL, fallbackIcon: icon)
 
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 8) {
@@ -383,7 +496,7 @@ private struct HistoryRow: View {
 
                 Spacer()
 
-                if let score = analysis.report?.formScore {
+                if let score = analysis.formScore.map(Double.init) ?? analysis.report?.formScore {
                     Text("\(Int(score))")
                         .riseFont(.header)
                         .font(.system(size: 22))
@@ -391,22 +504,22 @@ private struct HistoryRow: View {
                 }
             }
 
-            HStack(spacing: 10) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 VideoActionButton(title: "Original", icon: "play.rectangle.fill") {
                     onPlay(analysis, .original)
                 }
+
+                VideoActionButton(title: "Report", icon: "doc.text.magnifyingglass") {
+                    onOpenReport(analysis)
+                }
+                .disabled(analysis.status != .completed || analysis.report == nil)
+                .opacity(analysis.status == .completed && analysis.report != nil ? 1 : 0.45)
 
                 VideoActionButton(title: "Re-analyse", icon: "arrow.clockwise.circle") {
                     onReanalyze(analysis)
                 }
                 .disabled(analysis.status == .processing || analysis.status == .queued)
                 .opacity(analysis.status == .processing || analysis.status == .queued ? 0.45 : 1)
-
-                VideoActionButton(title: "Analysed", icon: "waveform.path.ecg") {
-                    onPlay(analysis, .analysed)
-                }
-                .disabled(analysis.status != .completed || analysis.analysedVideoURL == nil)
-                .opacity(analysis.status == .completed && analysis.analysedVideoURL != nil ? 1 : 0.45)
             }
         }
         .padding(14)
@@ -415,13 +528,13 @@ private struct HistoryRow: View {
     }
 
     private var icon: String {
-        switch Exercise(rawValue: analysis.exercise.lowercased()) {
-        case .deadlift: return "figure.strengthtraining.traditional"
-        case .squat: return "figure.strengthtraining.functional"
-        case .benchPress: return "figure.arms.open"
-        case .latPullDown: return "figure.mindful.stretching"
-        case .bicepCurl: return "figure.strengthtraining.traditional"
-        default: return "figure.run"
+        switch analysis.exercise.lowercased() {
+        case "deadlift":
+            return "figure.strengthtraining.traditional"
+        case "squat":
+            return "figure.strengthtraining.functional"
+        default:
+            return "figure.run"
         }
     }
 
@@ -445,6 +558,69 @@ private struct HistoryRow: View {
             return Color.riseWarning
         }
     }
+}
+
+private struct VideoThumbnailView: View {
+    let url: URL?
+    let fallbackIcon: String
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        ZStack {
+            if let thumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color.riseMint.opacity(0.12)
+
+                Image(systemName: fallbackIcon)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Color.riseMint)
+            }
+
+            VStack {
+                Spacer()
+                HStack {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundStyle(Color.black)
+                        .frame(width: 18, height: 18)
+                        .background(Color.riseMint)
+                        .clipShape(Circle())
+                    Spacer()
+                }
+                .padding(7)
+            }
+        }
+        .frame(width: 74, height: 74)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.riseText.opacity(0.08), lineWidth: 1)
+        )
+        .task(id: url) {
+            thumbnail = nil
+            guard let url else { return }
+            thumbnail = await makeVideoThumbnail(url)
+        }
+    }
+}
+
+private func makeVideoThumbnail(_ url: URL) async -> UIImage? {
+    await Task.detached(priority: .utility) {
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 480, height: 480)
+
+        do {
+            let image = try generator.copyCGImage(at: CMTime(seconds: 0.6, preferredTimescale: 600), actualTime: nil)
+            return UIImage(cgImage: image)
+        } catch {
+            return nil
+        }
+    }.value
 }
 
 private struct VideoActionButton: View {
@@ -515,6 +691,64 @@ private struct VideoPlaybackView: View {
     }
 }
 
+private struct AnalysisReportDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    let analysis: FormAnalysis
+    let videoURL: URL?
+    let onReanalyze: () -> Void
+    let onSubmitFeedback: (FormAnalysisFeedbackRating, String?) async throws -> Void
+
+    var body: some View {
+        ZStack {
+            RiseAppBackground()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack(alignment: .top, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Beta Report")
+                                .riseFont(.caption)
+                                .textCase(.uppercase)
+                                .foregroundStyle(Color.riseMint)
+
+                            Text(analysis.exercise.replacingOccurrences(of: "_", with: " ").capitalized)
+                                .riseFont(.title)
+                                .foregroundStyle(Color.riseText)
+
+                            Text(analysis.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                .riseFont(.bodyMedium)
+                                .foregroundStyle(Color.riseText.opacity(0.54))
+                        }
+
+                        Spacer()
+
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.riseText)
+                                .frame(width: 40, height: 40)
+                                .background(Color.riseText.opacity(0.1))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    AnalysisResultView(
+                        analysis: analysis,
+                        videoURL: videoURL,
+                        onReanalyze: onReanalyze,
+                        onSubmitFeedback: onSubmitFeedback
+                    )
+                }
+                .padding(24)
+                .padding(.bottom, 32)
+            }
+        }
+    }
+}
+
 private struct ChecklistRow: View {
     let icon: String
     let text: String
@@ -537,38 +771,59 @@ private struct ChecklistRow: View {
 
 private struct ReadyPanel: View {
     let videoURL: URL
-    let onAnalyze: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            StepLabel(number: "3", title: "Preview and analyse")
-
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Review your clip")
                         .riseFont(.subtitle)
                         .foregroundStyle(Color.riseText)
 
-                    Text("Make sure the full lift is visible before sending it for analysis.")
+                    Text("Make sure the full lift is visible before sending it to the beta model.")
                         .riseFont(.bodyMedium)
                         .foregroundStyle(Color.riseText.opacity(0.62))
                 }
 
                 SelectedVideoPreview(url: videoURL)
             }
-
-            Button(action: onAnalyze) {
-                HStack {
-                    Image(systemName: "bolt.fill")
-                    Text("Analyze Form")
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                }
-                .riseMainButton()
-            }
-            .buttonStyle(.plain)
         }
-        .risePanel()
+        .padding(16)
+        .background(Color.riseSoftFill.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.riseLine, lineWidth: 1)
+        )
+    }
+}
+
+private struct InlineProgressPanel: View {
+    let title: String
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+                .tint(Color.riseMint)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .riseFont(.bodyBold)
+                    .foregroundStyle(Color.riseText)
+                Text(message)
+                    .riseFont(.bodyMedium)
+                    .foregroundStyle(Color.riseText.opacity(0.62))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.riseSoftFill.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.riseLine, lineWidth: 1)
+        )
     }
 }
 
@@ -708,9 +963,16 @@ private struct AnalysisResultView: View {
     let analysis: FormAnalysis
     let videoURL: URL?
     let onReanalyze: () -> Void
+    let onSubmitFeedback: (FormAnalysisFeedbackRating, String?) async throws -> Void
+    @State private var selectedFeedback: FormAnalysisFeedbackRating?
+    @State private var feedbackNote = ""
+    @State private var feedbackMessage: String?
+    @State private var isSubmittingFeedback = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
+            BetaResultNoticePanel()
+
             if let videoURL {
                 VideoPlayer(player: AVPlayer(url: videoURL))
                     .frame(height: 320)
@@ -723,11 +985,27 @@ private struct AnalysisResultView: View {
 
             if let report = analysis.report {
                 ScorePanel(report: report)
+                CaptureQualityPanel(report: report)
+
+                if let reps = report.reps, !reps.isEmpty {
+                    RepDetailsPanel(reps: reps)
+                }
 
                 if let events = report.detectedEvents, !events.isEmpty {
                     EventsPanel(events: events)
                 } else {
                     CleanLiftPanel()
+                }
+            }
+
+            FeedbackPromptPanel(
+                selectedFeedback: selectedFeedback,
+                note: $feedbackNote,
+                message: feedbackMessage,
+                isSubmitting: isSubmittingFeedback
+            ) { rating in
+                Task {
+                    await submitFeedback(rating)
                 }
             }
 
@@ -750,6 +1028,107 @@ private struct AnalysisResultView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private func submitFeedback(_ rating: FormAnalysisFeedbackRating) async {
+        isSubmittingFeedback = true
+        feedbackMessage = nil
+        do {
+            let trimmedNote = feedbackNote.trimmingCharacters(in: .whitespacesAndNewlines)
+            try await onSubmitFeedback(rating, trimmedNote.isEmpty ? nil : trimmedNote)
+            selectedFeedback = rating
+            feedbackMessage = "Thanks. Your feedback was recorded."
+        } catch {
+            feedbackMessage = error.localizedDescription
+        }
+        isSubmittingFeedback = false
+    }
+}
+
+private struct BetaResultNoticePanel: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "testtube.2")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color.riseMint)
+                .frame(width: 34, height: 34)
+                .background(Color.riseMint.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Beta result")
+                    .riseFont(.bodyBold)
+                    .foregroundStyle(Color.riseText)
+                Text("This analysis may be inaccurate. Use it for testing RiseFit only, not as medical, safety, or professional coaching advice.")
+                    .riseFont(.caption)
+                    .foregroundStyle(Color.riseText.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .risePanel(padding: 16)
+    }
+}
+
+private struct FeedbackPromptPanel: View {
+    let selectedFeedback: FormAnalysisFeedbackRating?
+    @Binding var note: String
+    let message: String?
+    let isSubmitting: Bool
+    let onSelect: (FormAnalysisFeedbackRating) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Was this beta result right?")
+                    .riseFont(.subtitle)
+                    .foregroundStyle(Color.riseText)
+                Text("Your answer helps us find labeling and model mistakes faster.")
+                    .riseFont(.bodyMedium)
+                    .foregroundStyle(Color.riseText.opacity(0.58))
+            }
+
+            HStack(spacing: 10) {
+                ForEach(FormAnalysisFeedbackRating.allCases) { rating in
+                    Button {
+                        onSelect(rating)
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: rating.icon)
+                                .font(.system(size: 16, weight: .bold))
+                            Text(rating.title)
+                                .font(.system(size: 11, weight: .bold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                        }
+                        .foregroundStyle(selectedFeedback == rating ? Color.black : Color.riseText.opacity(0.82))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(selectedFeedback == rating ? Color.riseMint : Color.riseText.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSubmitting)
+                    .opacity(isSubmitting ? 0.55 : 1)
+                }
+            }
+
+            TextField("Optional note, e.g. rep count was wrong", text: $note, axis: .vertical)
+                .lineLimit(2...4)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.riseText)
+                .padding(12)
+                .background(Color.riseText.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .disabled(isSubmitting)
+
+            if let message {
+                Text(message)
+                    .riseFont(.caption)
+                    .foregroundStyle(message.hasPrefix("Thanks") ? Color.riseMint : Color.riseError)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .risePanel()
     }
 }
 
@@ -790,11 +1169,92 @@ private struct ScorePanel: View {
 
             HStack(spacing: 12) {
                 MetricTile(title: "Score", value: report.formScore.map { "\(Int($0))" } ?? "-")
+                MetricTile(title: "Reps", value: report.repCount.map { "\($0)" } ?? report.summary?.repCount.map { "\($0)" } ?? "-")
+                MetricTile(title: "Issues", value: report.issueCount.map { "\($0)" } ?? report.summary?.issueCount.map { "\($0)" } ?? "-")
+            }
+
+            HStack(spacing: 12) {
                 MetricTile(title: "View", value: report.viewHealth.map { "\(Int($0))%" } ?? "-")
-                MetricTile(title: "Time", value: report.totalDuration.map { "\(Int($0))s" } ?? "-")
+                MetricTile(title: "Quality", value: (report.analysisQuality ?? report.summary?.analysisQuality ?? "-").capitalized)
+                MetricTile(title: "Confidence", value: formatPercent(report.confidence ?? report.summary?.confidence))
+            }
+
+            HStack(spacing: 12) {
+                MetricTile(title: "Duration", value: report.totalDuration.map { formatSeconds($0) } ?? "-")
+                MetricTile(title: "Processed", value: report.video?.processedFrameCount.map { "\($0) frames" } ?? "-")
+                MetricTile(title: "FPS", value: report.video?.processedFPS.map { String(format: "%.0f", $0) } ?? "-")
+            }
+
+            if let primaryIssue = report.primaryIssue ?? report.summary?.primaryIssue {
+                Text("Primary issue: \(primaryIssue.replacingOccurrences(of: "_", with: " ").capitalized)")
+                    .riseFont(.bodyMedium)
+                    .foregroundStyle(Color.riseText.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .risePanel()
+    }
+}
+
+private struct CaptureQualityPanel: View {
+    let report: FormAnalysisReport
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(color)
+                .frame(width: 34, height: 34)
+                .background(color.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Capture quality")
+                        .riseFont(.bodyBold)
+                        .foregroundStyle(Color.riseText)
+                    Spacer()
+                    Text(report.viewHealth.map { "\(Int($0))%" } ?? "-")
+                        .riseFont(.caption)
+                        .foregroundStyle(color)
+                }
+
+                Text(message)
+                    .riseFont(.caption)
+                    .foregroundStyle(Color.riseText.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .risePanel(padding: 16)
+    }
+
+    private var score: Double? {
+        report.viewHealth
+    }
+
+    private var color: Color {
+        guard let score else { return Color.riseWarning }
+        if score >= 80 { return Color.riseMint }
+        if score >= 55 { return Color.riseWarning }
+        return Color.riseError
+    }
+
+    private var icon: String {
+        guard let score else { return "camera.metering.unknown" }
+        return score >= 80 ? "camera.viewfinder" : "camera.metering.center.weighted"
+    }
+
+    private var message: String {
+        guard let score else {
+            return "The beta model did not report a view score for this clip."
+        }
+        if score >= 80 {
+            return "The view looks usable for beta analysis."
+        }
+        if score >= 55 {
+            return "The clip may still work, but a clear side angle with full body and bar visible is better."
+        }
+        return "This clip may be hard to analyze. Retake from a stable side angle with the full lift in frame."
     }
 }
 
@@ -821,6 +1281,115 @@ private struct MetricTile: View {
     }
 }
 
+private struct RepDetailsPanel: View {
+    let reps: [FormRep]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Rep Details")
+                    .riseFont(.subtitle)
+                    .foregroundStyle(Color.riseText)
+                Text("Timing, tempo, and issues detected for each rep.")
+                    .riseFont(.bodyMedium)
+                    .foregroundStyle(Color.riseText.opacity(0.58))
+            }
+
+            VStack(spacing: 12) {
+                ForEach(reps) { rep in
+                    RepDetailRow(rep: rep)
+                }
+            }
+        }
+        .risePanel()
+    }
+}
+
+private struct RepDetailRow: View {
+    let rep: FormRep
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Rep \(rep.repIndex)")
+                    .riseFont(.bodyBold)
+                    .foregroundStyle(Color.riseText)
+
+                Spacer()
+
+                Text(timeRange)
+                    .riseFont(.caption)
+                    .foregroundStyle(Color.riseText.opacity(0.50))
+            }
+
+            HStack(spacing: 10) {
+                RepMetric(title: "Duration", value: rep.durationSeconds.map { formatSeconds($0) } ?? "-")
+                RepMetric(title: "Down", value: rep.tempo?.eccentric.map { formatSeconds($0) } ?? "-")
+                RepMetric(title: "Pause", value: rep.tempo?.pause.map { formatSeconds($0) } ?? "-")
+                RepMetric(title: "Up", value: rep.tempo?.concentric.map { formatSeconds($0) } ?? "-")
+            }
+
+            if let issues = rep.issues, !issues.isEmpty {
+                FlowTagRow(values: issues.map(formatIssueLabel))
+            } else {
+                FlowTagRow(values: ["No issues"])
+            }
+        }
+        .padding(14)
+        .background(Color.riseSoftFill.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var timeRange: String {
+        if let start = rep.startTime, let end = rep.endTime {
+            return "\(formatSeconds(start)) - \(formatSeconds(end))"
+        }
+        if let start = rep.startTime {
+            return "Starts \(formatSeconds(start))"
+        }
+        return "Timing unavailable"
+    }
+}
+
+private struct RepMetric: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(value)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Color.riseText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(title)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color.riseText.opacity(0.44))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct FlowTagRow: View {
+    let values: [String]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], alignment: .leading, spacing: 8) {
+            ForEach(values, id: \.self) { value in
+                Text(value)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(value == "No issues" ? Color.riseMint : Color.riseWarning)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background((value == "No issues" ? Color.riseMint : Color.riseWarning).opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+}
+
 private struct EventsPanel: View {
     let events: [DetectedFormEvent]
 
@@ -841,7 +1410,7 @@ private struct EventsPanel: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text(event.error)
+                            Text(event.type?.replacingOccurrences(of: "_", with: " ").capitalized ?? event.error)
                                 .riseFont(.bodyBold)
                                 .foregroundStyle(Color.riseText)
                             Spacer()
@@ -858,6 +1427,18 @@ private struct EventsPanel: View {
                                 .foregroundStyle(Color.riseText.opacity(0.6))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+
+                        HStack(spacing: 8) {
+                            if let repIndex = event.repIndex {
+                                EventTag(text: "Rep \(repIndex)")
+                            }
+                            if let severity = event.severity {
+                                EventTag(text: severity.capitalized)
+                            }
+                            if let confidence = event.confidence {
+                                EventTag(text: "\(Int(confidence * 100))%")
+                            }
+                        }
                     }
                 }
                 .padding(16)
@@ -866,6 +1447,20 @@ private struct EventsPanel: View {
             }
         }
         .risePanel()
+    }
+}
+
+private struct EventTag: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Color.riseMint)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.riseMint.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -887,6 +1482,27 @@ private struct CleanLiftPanel: View {
         }
         .panelStyle()
     }
+}
+
+private func formatSeconds(_ seconds: Double) -> String {
+    if seconds >= 10 {
+        return "\(Int(seconds))s"
+    }
+    return String(format: "%.1fs", seconds)
+}
+
+private func formatPercent(_ value: Double?) -> String {
+    guard let value else { return "-" }
+    let percent = value <= 1 ? value * 100 : value
+    return "\(Int(percent.rounded()))%"
+}
+
+private func formatIssueLabel(_ value: String) -> String {
+    value
+        .replacingOccurrences(of: "_", with: " ")
+        .split(separator: " ")
+        .map { $0.capitalized }
+        .joined(separator: " ")
 }
 
 private extension View {

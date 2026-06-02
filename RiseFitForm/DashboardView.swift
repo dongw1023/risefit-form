@@ -92,19 +92,19 @@ struct DashboardView: View {
     // --- Helpers ---
     
     private var avgScore: String {
-        let scores = viewModel.analyses.compactMap { $0.report?.formScore }
+        let scores = viewModel.analyses.compactMap { $0.formScore.map(Double.init) ?? $0.report?.formScore }
         guard !scores.isEmpty else { return "-" }
         return "\(Int(scores.reduce(0, +) / Double(scores.count)))"
     }
 
     private var peakScore: String {
-        let scores = viewModel.analyses.compactMap { $0.report?.formScore }
+        let scores = viewModel.analyses.compactMap { $0.formScore.map(Double.init) ?? $0.report?.formScore }
         guard let maxScore = scores.max() else { return "-" }
         return "\(Int(maxScore))"
     }
     
     private var avgViewHealth: String {
-        let scores = viewModel.analyses.compactMap { $0.report?.viewHealth }
+        let scores = viewModel.analyses.compactMap { $0.viewHealth.map(Double.init) ?? $0.report?.viewHealth }
         guard !scores.isEmpty else { return "-" }
         return "\(Int(scores.reduce(0, +) / Double(scores.count)))%"
     }
@@ -200,7 +200,7 @@ private struct ActivityRow: View {
 
             Spacer()
 
-            if let score = analysis.report?.formScore {
+            if let score = analysis.formScore.map(Double.init) ?? analysis.report?.formScore {
                 Text("\(Int(score))")
                     .riseFont(.bodyBold)
                     .foregroundStyle(Color.riseMint)
@@ -215,7 +215,6 @@ private struct ActivityRow: View {
         switch exercise.lowercased() {
         case "deadlift": return "figure.strengthtraining.traditional"
         case "squat": return "figure.strengthtraining.functional"
-        case "bench_press": return "figure.arms.open"
         default: return "figure.run"
         }
     }

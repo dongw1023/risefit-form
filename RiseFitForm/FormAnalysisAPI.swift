@@ -12,10 +12,10 @@ final class FormAnalysisAPI {
 
     private let encoder = JSONEncoder()
 
-    func createAnalysis(exercise: Exercise, videoURL: URL) async throws -> FormAnalysis {
+    func createAnalysis(exercise: Exercise, videoURL: URL, trainingConsent: Bool) async throws -> FormAnalysis {
         let upload = try await createUploadURL(filename: videoURL.lastPathComponent, contentType: contentType(for: videoURL))
         try await uploadVideo(videoURL, to: upload.uploadURL, contentType: upload.contentType)
-        return try await createAnalysisFromUploadedVideo(exercise: exercise, upload: upload)
+        return try await createAnalysisFromUploadedVideo(exercise: exercise, upload: upload, trainingConsent: trainingConsent)
     }
 
     private func createUploadURL(filename: String, contentType: String) async throws -> FormUploadURL {
@@ -39,7 +39,7 @@ final class FormAnalysisAPI {
         try validateUpload(response: response, data: data)
     }
 
-    private func createAnalysisFromUploadedVideo(exercise: Exercise, upload: FormUploadURL) async throws -> FormAnalysis {
+    private func createAnalysisFromUploadedVideo(exercise: Exercise, upload: FormUploadURL, trainingConsent: Bool) async throws -> FormAnalysis {
         var request = URLRequest(url: baseURL.appendingPathComponent("form-analyses/from-upload"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -47,7 +47,8 @@ final class FormAnalysisAPI {
         request.httpBody = try encoder.encode(CreateUploadedAnalysisRequest(
             analysisID: upload.analysisID,
             exercise: exercise.rawValue,
-            objectName: upload.objectName
+            objectName: upload.objectName,
+            trainingConsent: trainingConsent
         ))
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -87,6 +88,17 @@ final class FormAnalysisAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response: response, data: data)
         return try decoder.decode(FormAnalysis.self, from: data)
+    }
+
+    func submitFeedback(analysisID: UUID, rating: FormAnalysisFeedbackRating, note: String?) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("form-analyses/\(analysisID.uuidString)/feedback"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuth(to: &request)
+        request.httpBody = try encoder.encode(FormAnalysisFeedbackRequest(rating: rating.rawValue, note: note))
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
     }
 
     func analysedVideoURL(for analysis: FormAnalysis) -> URL? {
@@ -177,12 +189,19 @@ private struct CreateUploadedAnalysisRequest: Encodable {
     let analysisID: UUID
     let exercise: String
     let objectName: String
+    let trainingConsent: Bool
 
     enum CodingKeys: String, CodingKey {
         case analysisID = "analysis_id"
         case exercise
         case objectName = "object_name"
+        case trainingConsent = "training_consent"
     }
+}
+
+private struct FormAnalysisFeedbackRequest: Encodable {
+    let rating: String
+    let note: String?
 }
 
 private struct FormAnalysisListResponse: Decodable {

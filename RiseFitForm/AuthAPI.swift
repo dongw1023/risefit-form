@@ -1,15 +1,31 @@
 import Foundation
 
 struct UserProfile: Codable {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        email = try container.decode(String.self, forKey: .email)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        picture = try container.decodeIfPresent(String.self, forKey: .picture)
+        isSubscribed = try container.decode(Bool.self, forKey: .isSubscribed)
+        tier = try container.decode(String.self, forKey: .tier)
+        scopes = try container.decodeIfPresent([String].self, forKey: .scopes) ?? []
+    }
+
     let id: Int
     let email: String
     let name: String?
     let picture: String?
     let isSubscribed: Bool
     let tier: String
+    let scopes: [String]
+
+    var canRunFormCheck: Bool {
+        scopes.contains("form_check:run")
+    }
 
     enum CodingKeys: String, CodingKey {
-        case id, email, name, picture, tier
+        case id, email, name, picture, tier, scopes
         case isSubscribed = "is_subscribed"
     }
 }

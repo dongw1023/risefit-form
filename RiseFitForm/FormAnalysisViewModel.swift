@@ -33,6 +33,7 @@ final class FormAnalysisViewModel: ObservableObject {
     private var pollingTask: Task<Void, Never>?
     private let authToken: String?
     private static let trainingConsentKey = "formAnalysisContributorBetaAccepted"
+    private static let missingFormCheckScopeMessage = "Form Check beta access is not enabled for this account."
 
     init(authToken: String?) {
         let api = FormAnalysisAPI()
@@ -83,6 +84,7 @@ final class FormAnalysisViewModel: ObservableObject {
             state = .failed("Join the RiseFit Contributor Beta before uploading a video for analysis.")
             return
         }
+        guard canRunFormCheck() else { return }
         state = .uploading
 
         do {
@@ -96,6 +98,8 @@ final class FormAnalysisViewModel: ObservableObject {
     }
 
     func reanalyze(_ analysis: FormAnalysis) async {
+        guard canRunFormCheck() else { return }
+
         do {
             state = .processing(analysis)
             let updatedAnalysis = try await api.reanalyzeAnalysis(id: analysis.id)
@@ -106,6 +110,10 @@ final class FormAnalysisViewModel: ObservableObject {
     }
 
     func submitFeedback(for analysis: FormAnalysis, rating: FormAnalysisFeedbackRating, note: String?) async throws {
+        guard userProfile?.canRunFormCheck != false else {
+            throw APIError.local(Self.missingFormCheckScopeMessage)
+        }
+
         try await api.submitFeedback(analysisID: analysis.id, rating: rating, note: note)
     }
 
@@ -135,6 +143,15 @@ final class FormAnalysisViewModel: ObservableObject {
         } catch {
             historyError = error.localizedDescription
         }
+    }
+
+    private func canRunFormCheck() -> Bool {
+        guard userProfile?.canRunFormCheck != false else {
+            state = .failed(Self.missingFormCheckScopeMessage)
+            return false
+        }
+
+        return true
     }
 
     private func startPolling(id: UUID) {

@@ -49,9 +49,10 @@ struct MainTabView: View {
                 withAnimation(.spring()) { selectedTab = 2 }
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 12)
-        .padding(.bottom, 28)
+        .padding(.horizontal, 0)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
+        .frame(height: 62, alignment: .top)
         .frame(maxWidth: .infinity)
         .background(Color.riseTabBar)
         .overlay(
@@ -60,7 +61,7 @@ struct MainTabView: View {
                 .frame(height: 1),
             alignment: .top
         )
-        .shadow(color: Color.riseText.opacity(0.10), radius: 14, x: 0, y: -6)
+        .shadow(color: Color.riseText.opacity(0.08), radius: 8, x: 0, y: -2)
         .ignoresSafeArea(edges: .bottom)
     }
 }
@@ -75,15 +76,17 @@ private struct TabItem: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: isSelected ? .bold : .medium))
+                    .font(.system(size: 22, weight: isSelected ? .bold : .medium))
                     .foregroundStyle(isSelected ? Color.riseMint : Color.riseMutedText)
-                    .frame(height: 26)
+                    .frame(height: 24)
                 
                 Text(label)
-                    .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                    .font(.system(size: 11, weight: isSelected ? .bold : .medium))
                     .foregroundStyle(isSelected ? Color.riseMint : Color.riseMutedText)
             }
+            .frame(height: 52)
             .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

@@ -103,6 +103,8 @@ final class FormAnalysisViewModel: ObservableObject {
         do {
             state = .processing(analysis)
             let updatedAnalysis = try await api.reanalyzeAnalysis(id: analysis.id)
+            state = .processing(updatedAnalysis)
+            await loadHistory()
             startPolling(id: updatedAnalysis.id)
         } catch {
             state = .failed(error.localizedDescription)

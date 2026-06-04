@@ -45,7 +45,7 @@ struct AnalysisView: View {
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 24)
-                .padding(.bottom, 100) // Space for floating tab bar
+                .padding(.bottom, 72)
             }
         }
         .sheet(item: $playback) { playback in
@@ -110,14 +110,23 @@ struct AnalysisView: View {
             EmptyView()
         case .uploading:
             ProgressPanel(title: "Uploading video", message: "Uploading your beta contributor clip for form analysis.")
-        case .processing:
-            ProgressPanel(title: "Analysing Form", message: "The beta model is identifying joints and form events...")
-        case .completed(let analysis):
-            AnalysisResultView(analysis: analysis, videoURL: viewModel.videoURL(for: analysis)) {
-                Task { await viewModel.reanalyze(analysis) }
-            } onSubmitFeedback: { rating, note in
-                try await viewModel.submitFeedback(for: analysis, rating: rating, note: note)
+        case .processing(let analysis):
+            if analysis.status == .queued {
+                ProgressPanel(title: "Queued for analysis", message: "Your clip is waiting for the beta model. RiseFit will start processing it soon.")
+            } else {
+                ProgressPanel(title: "Analysing Form", message: "The beta model is identifying joints and form events...")
             }
+        case .completed(let analysis):
+            CompletedAnalysisSummaryPanel(
+                analysis: analysis,
+                videoURL: viewModel.videoURL(for: analysis),
+                onOpenReport: {
+                    reportDetail = analysis
+                },
+                onReanalyze: {
+                    Task { await viewModel.reanalyze(analysis) }
+                }
+            )
         case .failed(let message):
             FailurePanel(message: message)
         }
@@ -492,6 +501,7 @@ private struct HistoryRow: View {
     let onPlay: (FormAnalysis, HistoryVideoKind) -> Void
     let onOpenReport: (FormAnalysis) -> Void
     let onReanalyze: (FormAnalysis) -> Void
+    @State private var isConfirmingReanalysis = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -534,7 +544,7 @@ private struct HistoryRow: View {
                 .opacity(analysis.status == .completed && analysis.report != nil ? 1 : 0.45)
 
                 VideoActionButton(title: "Re-analyse", icon: "arrow.clockwise.circle") {
-                    onReanalyze(analysis)
+                    isConfirmingReanalysis = true
                 }
                 .disabled(analysis.status == .processing || analysis.status == .queued)
                 .opacity(analysis.status == .processing || analysis.status == .queued ? 0.45 : 1)
@@ -543,6 +553,14 @@ private struct HistoryRow: View {
         .padding(14)
         .background(Color.riseSoftFill.opacity(0.65))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .alert("Run analysis again?", isPresented: $isConfirmingReanalysis) {
+            Button("Cancel", role: .cancel) {}
+            Button("Run Again") {
+                onReanalyze(analysis)
+            }
+        } message: {
+            Text("This will start a fresh beta analysis for this clip. The new result will appear when processing finishes.")
+        }
     }
 
     private var icon: String {
@@ -1059,12 +1077,115 @@ private struct FailurePanel: View {
     }
 }
 
+private struct CompletedAnalysisSummaryPanel: View {
+    let analysis: FormAnalysis
+    let videoURL: URL?
+    let onOpenReport: () -> Void
+    let onReanalyze: () -> Void
+    @State private var playback: VideoPlayback?
+    @State private var isConfirmingReanalysis = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Color.black)
+                    .frame(width: 46, height: 46)
+                    .background(Color.riseMint)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Analysis complete")
+                        .riseFont(.subtitle)
+                        .foregroundStyle(Color.riseText)
+
+                    Text(analysis.exercise.replacingOccurrences(of: "_", with: " ").capitalized)
+                        .riseFont(.bodyMedium)
+                        .foregroundStyle(Color.riseText.opacity(0.58))
+                }
+
+                Spacer()
+
+                if let score {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(Int(score))")
+                            .riseFont(.header)
+                            .foregroundStyle(Color.riseMint)
+                        Text("Score")
+                            .riseFont(.caption)
+                            .foregroundStyle(Color.riseText.opacity(0.45))
+                    }
+                }
+            }
+
+            if let videoURL {
+                VideoPreviewCard(
+                    url: videoURL,
+                    title: "Analysed clip",
+                    fallbackIcon: "waveform.path.ecg.rectangle",
+                    onPreview: {
+                        playback = VideoPlayback(title: "Analysed \(analysis.exercise.capitalized)", url: videoURL)
+                    }
+                )
+            }
+
+            HStack(spacing: 10) {
+                Button(action: onOpenReport) {
+                    HStack {
+                        Image(systemName: "doc.text.magnifyingglass")
+                        Text("Open Report")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .riseMainButton()
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    isConfirmingReanalysis = true
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.riseText)
+                        .frame(width: 48, height: 48)
+                        .background(Color.riseText.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.riseText.opacity(0.08), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .risePanel()
+        .sheet(item: $playback) { playback in
+            VideoPlaybackView(playback: playback)
+        }
+        .alert("Run analysis again?", isPresented: $isConfirmingReanalysis) {
+            Button("Cancel", role: .cancel) {}
+            Button("Run Again") {
+                onReanalyze()
+            }
+        } message: {
+            Text("This will start a fresh beta analysis for this clip. The new result will appear when processing finishes.")
+        }
+    }
+
+    private var score: Double? {
+        analysis.formScore.map(Double.init) ?? analysis.report?.formScore
+    }
+}
+
 private struct AnalysisResultView: View {
     let analysis: FormAnalysis
     let videoURL: URL?
     let onReanalyze: () -> Void
     let onSubmitFeedback: (FormAnalysisFeedbackRating, String?) async throws -> Void
     @State private var playback: VideoPlayback?
+    @State private var isConfirmingReanalysis = false
     @State private var selectedFeedback: FormAnalysisFeedbackRating?
     @State private var feedbackNote = ""
     @State private var feedbackMessage: String?
@@ -1109,12 +1230,15 @@ private struct AnalysisResultView: View {
                 message: feedbackMessage,
                 isSubmitting: isSubmittingFeedback
             ) { rating in
-                Task {
-                    await submitFeedback(rating)
-                }
+                selectedFeedback = rating
+                feedbackMessage = nil
+            } onSubmit: {
+                Task { await submitFeedback() }
             }
 
-            Button(action: onReanalyze) {
+            Button {
+                isConfirmingReanalysis = true
+            } label: {
                 HStack {
                     Image(systemName: "arrow.clockwise")
                     Text("Re-run Analysis")
@@ -1136,15 +1260,23 @@ private struct AnalysisResultView: View {
         .sheet(item: $playback) { playback in
             VideoPlaybackView(playback: playback)
         }
+        .alert("Run analysis again?", isPresented: $isConfirmingReanalysis) {
+            Button("Cancel", role: .cancel) {}
+            Button("Run Again") {
+                onReanalyze()
+            }
+        } message: {
+            Text("This will start a fresh beta analysis for this clip. The new result will appear when processing finishes.")
+        }
     }
 
-    private func submitFeedback(_ rating: FormAnalysisFeedbackRating) async {
+    private func submitFeedback() async {
+        guard let selectedFeedback else { return }
         isSubmittingFeedback = true
         feedbackMessage = nil
         do {
             let trimmedNote = feedbackNote.trimmingCharacters(in: .whitespacesAndNewlines)
-            try await onSubmitFeedback(rating, trimmedNote.isEmpty ? nil : trimmedNote)
-            selectedFeedback = rating
+            try await onSubmitFeedback(selectedFeedback, trimmedNote.isEmpty ? nil : trimmedNote)
             feedbackMessage = "Thanks. Your feedback was recorded."
         } catch {
             feedbackMessage = error.localizedDescription
@@ -1183,6 +1315,7 @@ private struct FeedbackPromptPanel: View {
     let message: String?
     let isSubmitting: Bool
     let onSelect: (FormAnalysisFeedbackRating) -> Void
+    let onSubmit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1228,6 +1361,23 @@ private struct FeedbackPromptPanel: View {
                 .background(Color.riseText.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .disabled(isSubmitting)
+
+            Button(action: onSubmit) {
+                HStack {
+                    if isSubmitting {
+                        ProgressView()
+                            .tint(Color.black)
+                    } else {
+                        Image(systemName: "paperplane.fill")
+                    }
+                    Text(isSubmitting ? "Submitting" : "Submit Feedback")
+                    Spacer()
+                }
+                .riseMainButton()
+            }
+            .buttonStyle(.plain)
+            .disabled(selectedFeedback == nil || isSubmitting)
+            .opacity(selectedFeedback == nil || isSubmitting ? 0.45 : 1)
 
             if let message {
                 Text(message)
@@ -1275,6 +1425,20 @@ private struct ScorePanel: View {
                 .frame(width: 90, height: 88)
             }
 
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.riseMint)
+
+                Text(gradeExplanation)
+                    .riseFont(.caption)
+                    .foregroundStyle(Color.riseText.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .background(Color.riseMint.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
             HStack(spacing: 12) {
                 MetricTile(title: "Score", value: report.formScore.map { "\(Int($0))" } ?? "-")
                 MetricTile(title: "Reps", value: report.repCount.map { "\($0)" } ?? report.summary?.repCount.map { "\($0)" } ?? "-")
@@ -1287,11 +1451,7 @@ private struct ScorePanel: View {
                 MetricTile(title: "Confidence", value: formatPercent(report.confidence ?? report.summary?.confidence))
             }
 
-            HStack(spacing: 12) {
-                MetricTile(title: "Duration", value: report.totalDuration.map { formatSeconds($0) } ?? "-")
-                MetricTile(title: "Processed", value: report.video?.processedFrameCount.map { "\($0) frames" } ?? "-")
-                MetricTile(title: "FPS", value: report.video?.processedFPS.map { String(format: "%.0f", $0) } ?? "-")
-            }
+            VideoProcessingSummary(report: report)
 
             if let primaryIssue = report.primaryIssue ?? report.summary?.primaryIssue {
                 Text("Primary issue: \(primaryIssue.replacingOccurrences(of: "_", with: " ").capitalized)")
@@ -1301,6 +1461,64 @@ private struct ScorePanel: View {
             }
         }
         .risePanel()
+    }
+
+    private var gradeExplanation: String {
+        let grade = report.formGrade ?? "-"
+        switch grade.uppercased() {
+        case "A":
+            return "Grade A means the beta model found strong form signals with few or no major issues."
+        case "B":
+            return "Grade B means mostly good form, with minor issues or lower confidence in parts of the lift."
+        case "C":
+            return "Grade C means usable form, but the model detected issues worth reviewing."
+        case "D":
+            return "Grade D means multiple form issues or capture limitations affected the result."
+        case "E", "F":
+            return "Grade \(grade.uppercased()) means the clip likely has major form issues, low confidence, or poor capture quality."
+        default:
+            return "The grade is a beta summary of score, detected issues, confidence, and capture quality."
+        }
+    }
+}
+
+private struct VideoProcessingSummary: View {
+    let report: FormAnalysisReport
+
+    var body: some View {
+        VStack(spacing: 1) {
+            ProcessingInfoRow(title: "Duration", value: report.totalDuration.map { formatSeconds($0) } ?? "-")
+            ProcessingInfoRow(title: "Frames processed", value: report.video?.processedFrameCount.map { "\($0) frames" } ?? "-")
+            ProcessingInfoRow(title: "Processed FPS", value: report.video?.processedFPS.map { String(format: "%.0f fps", $0) } ?? "-")
+        }
+        .background(Color.riseText.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.riseText.opacity(0.08), lineWidth: 1)
+        )
+    }
+}
+
+private struct ProcessingInfoRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .riseFont(.caption)
+                .foregroundStyle(Color.riseText.opacity(0.48))
+            Spacer(minLength: 12)
+            Text(value)
+                .riseFont(.bodyBold)
+                .foregroundStyle(Color.riseText.opacity(0.86))
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Color.riseSoftFill.opacity(0.68))
     }
 }
 
@@ -1376,8 +1594,9 @@ private struct MetricTile: View {
                 .riseFont(.title)
                 .font(.system(size: 24))
                 .foregroundStyle(Color.riseText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+                .fixedSize(horizontal: false, vertical: true)
             Text(title)
                 .riseFont(.caption)
                 .foregroundStyle(Color.riseText.opacity(0.45))

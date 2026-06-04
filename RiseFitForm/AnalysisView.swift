@@ -164,6 +164,7 @@ private struct CapabilityPill: View {
 
 private struct UploadPanel: View {
     @ObservedObject var viewModel: FormAnalysisViewModel
+    @State private var previewPlayback: VideoPlayback?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -202,19 +203,8 @@ private struct UploadPanel: View {
             VStack(alignment: .leading, spacing: 12) {
                 StepLabel(number: "2", title: "Add training clip")
 
-                PhotosPicker(selection: $viewModel.selectedItem, matching: .videos) {
-                    HStack {
-                        Image(systemName: hasSelectedVideo ? "arrow.triangle.2.circlepath.circle.fill" : "plus.circle.fill")
-                        Text(hasSelectedVideo ? "Change Video" : "Choose Video")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .bold))
-                    }
-                    .riseMainButton()
-                }
-                .buttonStyle(.plain)
-                .onChange(of: viewModel.selectedItem) { _ in
-                    Task { await viewModel.loadSelectedVideo() }
+                if !hasSelectedVideo {
+                    videoPickerButton(title: "Choose Video", icon: "plus.circle.fill")
                 }
 
                 uploadStateContent
@@ -254,6 +244,9 @@ private struct UploadPanel: View {
             }
         }
         .risePanel()
+        .sheet(item: $previewPlayback) { playback in
+            VideoPlaybackView(playback: playback)
+        }
     }
 
     @ViewBuilder
@@ -262,7 +255,15 @@ private struct UploadPanel: View {
         case .loading:
             InlineProgressPanel(title: "Preparing video", message: "Copying your clip from Photos...")
         case .selected(let videoURL):
-            ReadyPanel(videoURL: videoURL)
+            ReadyPanel(
+                videoURL: videoURL,
+                changeButton: {
+                    videoPickerButton(title: "Change", icon: "arrow.triangle.2.circlepath.circle.fill")
+                },
+                onPreview: {
+                    previewPlayback = VideoPlayback(title: "Review your clip", url: videoURL)
+                }
+            )
         default:
             EmptyView()
         }
@@ -337,6 +338,23 @@ private struct UploadPanel: View {
             return "checkmark"
         }
         return "video.badge.plus"
+    }
+
+    private func videoPickerButton(title: String, icon: String) -> some View {
+        PhotosPicker(selection: $viewModel.selectedItem, matching: .videos) {
+            HStack {
+                Image(systemName: icon)
+                Text(title)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+            }
+            .riseMainButton()
+        }
+        .buttonStyle(.plain)
+        .onChange(of: viewModel.selectedItem) { _ in
+            Task { await viewModel.loadSelectedVideo() }
+        }
     }
 }
 
@@ -563,6 +581,7 @@ private struct HistoryRow: View {
 private struct VideoThumbnailView: View {
     let url: URL?
     let fallbackIcon: String
+    var size: CGFloat = 74
     @State private var thumbnail: UIImage?
 
     var body: some View {
@@ -575,7 +594,7 @@ private struct VideoThumbnailView: View {
                 Color.riseMint.opacity(0.12)
 
                 Image(systemName: fallbackIcon)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: size * 0.24, weight: .bold))
                     .foregroundStyle(Color.riseMint)
             }
 
@@ -585,15 +604,15 @@ private struct VideoThumbnailView: View {
                     Image(systemName: "play.fill")
                         .font(.system(size: 8, weight: .black))
                         .foregroundStyle(Color.black)
-                        .frame(width: 18, height: 18)
+                        .frame(width: size * 0.24, height: size * 0.24)
                         .background(Color.riseMint)
                         .clipShape(Circle())
                     Spacer()
                 }
-                .padding(7)
+                .padding(size * 0.09)
             }
         }
-        .frame(width: 74, height: 74)
+        .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -653,6 +672,7 @@ private struct VideoActionButton: View {
 private struct VideoPlaybackView: View {
     @Environment(\.dismiss) private var dismiss
     let playback: VideoPlayback
+    @State private var player: AVPlayer?
 
     var body: some View {
         ZStack {
@@ -679,7 +699,7 @@ private struct VideoPlaybackView: View {
                     .buttonStyle(.plain)
                 }
 
-                VideoPlayer(player: AVPlayer(url: playback.url))
+                VideoPlayer(player: player)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
@@ -687,6 +707,15 @@ private struct VideoPlaybackView: View {
                     )
             }
             .padding(24)
+        }
+        .onAppear {
+            let player = AVPlayer(url: playback.url)
+            self.player = player
+            player.play()
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
         }
     }
 }
@@ -769,8 +798,10 @@ private struct ChecklistRow: View {
     }
 }
 
-private struct ReadyPanel: View {
+private struct ReadyPanel<ChangeButton: View>: View {
     let videoURL: URL
+    @ViewBuilder let changeButton: () -> ChangeButton
+    let onPreview: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -785,7 +816,28 @@ private struct ReadyPanel: View {
                         .foregroundStyle(Color.riseText.opacity(0.62))
                 }
 
-                SelectedVideoPreview(url: videoURL)
+                VideoPreviewCard(
+                    url: videoURL,
+                    title: "Selected clip",
+                    fallbackIcon: "video.fill",
+                    onPreview: onPreview
+                )
+
+                HStack(spacing: 10) {
+                    changeButton()
+
+                    Button(action: onPreview) {
+                        HStack {
+                            Image(systemName: "play.fill")
+                            Text("Preview")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .riseMainButton()
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
         .padding(16)
@@ -827,46 +879,94 @@ private struct InlineProgressPanel: View {
     }
 }
 
-private struct SelectedVideoPreview: View {
+private struct VideoPreviewCard: View {
     let url: URL
-    @State private var player: AVPlayer?
+    let title: String
+    let fallbackIcon: String
+    let onPreview: () -> Void
+    @State private var metadata: LocalVideoMetadata?
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            VideoPlayer(player: player)
-                .frame(height: 260)
-                .background(Color.riseSoftFill)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.riseText.opacity(0.10), lineWidth: 1)
-                )
+        Button(action: onPreview) {
+            HStack(spacing: 14) {
+                VideoThumbnailView(url: url, fallbackIcon: fallbackIcon, size: 96)
 
-            HStack(spacing: 7) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12, weight: .bold))
-                Text("Clip ready")
-                    .font(.system(size: 12, weight: .bold))
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("Clip ready")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundStyle(Color.black)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.riseMint)
+                    .clipShape(Capsule())
+
+                    Text(title)
+                        .riseFont(.bodyBold)
+                        .foregroundStyle(Color.riseText)
+
+                    Text(metadata?.summary ?? "Preparing clip details")
+                        .riseFont(.caption)
+                        .foregroundStyle(Color.riseText.opacity(0.52))
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                Image(systemName: "play.fill")
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(Color.black)
+                    .frame(width: 36, height: 36)
+                    .background(Color.riseMint)
+                    .clipShape(Circle())
             }
-            .foregroundStyle(Color.black)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(Color.riseMint)
-            .clipShape(Capsule())
             .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.riseSoftFill.opacity(0.72))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.riseText.opacity(0.08), lineWidth: 1)
+            )
         }
-        .onAppear {
-            if player == nil {
-                player = AVPlayer(url: url)
-            }
+        .buttonStyle(.plain)
+        .task(id: url) {
+            metadata = await LocalVideoMetadata.load(from: url)
         }
-        .onDisappear {
-            player?.pause()
-        }
-        .onChange(of: url) { newURL in
-            player?.pause()
-            player = AVPlayer(url: newURL)
-        }
+    }
+}
+
+private struct LocalVideoMetadata {
+    let duration: TimeInterval?
+    let fileSize: Int64?
+
+    var summary: String {
+        [durationText, fileSizeText].compactMap(\.self).joined(separator: " · ")
+    }
+
+    private var durationText: String? {
+        guard let duration, duration.isFinite, duration > 0 else { return nil }
+        let totalSeconds = Int(duration.rounded())
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return minutes > 0 ? "\(minutes)m \(seconds)s" : "\(seconds)s"
+    }
+
+    private var fileSizeText: String? {
+        guard let fileSize, fileSize > 0 else { return nil }
+        return ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
+    }
+
+    static func load(from url: URL) async -> LocalVideoMetadata {
+        await Task.detached(priority: .utility) {
+            let asset = AVURLAsset(url: url)
+            let duration = try? await asset.load(.duration)
+            let values = try? url.resourceValues(forKeys: [.fileSizeKey])
+            return LocalVideoMetadata(duration: duration.map(CMTimeGetSeconds), fileSize: values?.fileSize.map(Int64.init))
+        }.value
     }
 }
 
@@ -964,6 +1064,7 @@ private struct AnalysisResultView: View {
     let videoURL: URL?
     let onReanalyze: () -> Void
     let onSubmitFeedback: (FormAnalysisFeedbackRating, String?) async throws -> Void
+    @State private var playback: VideoPlayback?
     @State private var selectedFeedback: FormAnalysisFeedbackRating?
     @State private var feedbackNote = ""
     @State private var feedbackMessage: String?
@@ -974,13 +1075,17 @@ private struct AnalysisResultView: View {
             BetaResultNoticePanel()
 
             if let videoURL {
-                VideoPlayer(player: AVPlayer(url: videoURL))
-                    .frame(height: 320)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.riseText.opacity(0.1), lineWidth: 1)
-                    )
+                VideoPreviewCard(
+                    url: videoURL,
+                    title: "Analysed clip",
+                    fallbackIcon: "waveform.path.ecg.rectangle",
+                    onPreview: {
+                        playback = VideoPlayback(
+                            title: "Analysed \(analysis.exercise.replacingOccurrences(of: "_", with: " ").capitalized)",
+                            url: videoURL
+                        )
+                    }
+                )
             }
 
             if let report = analysis.report {
@@ -1027,6 +1132,9 @@ private struct AnalysisResultView: View {
                 )
             }
             .buttonStyle(.plain)
+        }
+        .sheet(item: $playback) { playback in
+            VideoPlaybackView(playback: playback)
         }
     }
 

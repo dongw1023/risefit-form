@@ -73,6 +73,14 @@ struct AuthAPI {
         )
     }
 
+    func deleteAccount(token: String) async throws {
+        let _: AuthResponse = try await perform(
+            method: "DELETE",
+            path: "auth/profile",
+            authToken: token
+        )
+    }
+
     func appleLogin(identityToken: String, authorizationCode: String, name: String?, email: String?) async throws -> String {
         let response: AuthResponse = try await perform(
             method: "POST",
